@@ -1,0 +1,13 @@
+node_modules
+test/*.js
+test/*.d.ts
+test/*.map
+.vscode/*.*
+npm-debug.log
+yarn-error.log
+.idea
+*~
+.#*
+dist/
+.DS_Store
+.history/
