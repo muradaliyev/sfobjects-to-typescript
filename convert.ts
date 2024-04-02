@@ -55,24 +55,46 @@ function generateType(d: DescribeSObjectResult, otherNames: string[] = [], path?
 
     const usedTypes: string[] = [];
 
+    const getType = (t: string, isArray?: boolean) => {
+
+        const suffix = isArray ? '[]' : '';
+
+        if (otherNames.some(on => on === t)) {
+            usedTypes.push(t);
+            return `${t}${suffix}`;
+        }
+
+        return `object${suffix} /* ${t} */`;
+    }
     const n = _(d.fields || [])
+        .filter(f => f.type !== 'reference')
         .reduce((p, v, i) => ({ ...p, [v.name]: fieldToType(v) }), {} as Record<string, string>);
 
     const r = _(d.fields || [])
+        .filter(f => f.type === 'reference')
         .reduce((p, v, i) => {
 
-            if (v.type === 'reference' && !!v.relationshipName) {
+            if (v.relationshipName) {
                 return {
                     ...p,
-                    [v.relationshipName]: _(v.referenceTo || []).map(r => {
+                    [v.relationshipName]: _(v.referenceTo || [])
+                        .map(r => getType(r))
+                        .uniq()
+                        .join(" | ")
+                }
+            }
 
-                        if (otherNames.some(on => on === r)) {
-                            usedTypes.push(r);
-                            return r;
-                        }
+            return p;
 
-                        return `object /* ${r} */`;
-                    }).uniq().join(" | ")
+        }, {} as Record<string, string>)
+
+    const c = _(d.childRelationships || [])
+        .reduce((p, v, i) => {
+
+            if (v.relationshipName) {
+                return {
+                    ...p,
+                    [v.relationshipName]: getType(v.childSObject, true)
                 }
             }
 
@@ -83,7 +105,7 @@ function generateType(d: DescribeSObjectResult, otherNames: string[] = [], path?
 
     return _([
         ..._(usedTypes).uniq().filter(t => t !== d.name).map(t => `import { ${t} } from "./${t}";`).value(),
-        `export interface ${d.name} {${_({ ...n, ...r }).map((v, k) => `\n  ${k}: ${v}`).join(';')}  \n}`
+        `export interface ${d.name} {${_({ ...n, ...r, ...c }).map((v, k) => `\n  ${k}: ${v}`).join(';')}  \n}`
     ]).join('\n');
 }
 
