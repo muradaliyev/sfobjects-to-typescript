@@ -1,10 +1,14 @@
 {
   "name": "sfobjects-to-typescript",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Pulls SF objects description and saves as Typescript interfaces",
   "main": "dist/sfobjects-to-typescript.js",
   "bin": {
     "sfobjects-to-typescript": "./bin/sfobjects-to-typescript"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/muradaliyev/sfobjects-to-typescript"
   },
   "scripts": {
     "build": "npm run clean && tsc",
