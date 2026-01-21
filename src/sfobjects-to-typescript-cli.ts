@@ -10,6 +10,25 @@ async function run() {
 
         const o = await yarg
             .scriptName('sfobjects-to-typescript')
+            .option('username', {
+                describe: 'Salesforce username',
+                alias: 'u',
+                type: 'string',
+                demandOption: true
+            })
+            .option('password', {
+                describe: 'Salesforce password',
+                alias: 'p',
+                type: 'string',
+                demandOption: true
+            })
+            .option('objects', {
+                describe: 'List of objects to generate types for',
+                alias: 'obj',
+                type: 'string',
+                array: true,
+                demandOption: true
+            })
             .option('login_url', {
                 describe: 'Salesforce login URL e.g. https://login.salesforce.com/',
                 alias: 'lurl',
@@ -35,18 +54,7 @@ async function run() {
                 alias: 's',
                 type: 'string'
             })
-            .option('username', {
-                describe: 'Salesforce username',
-                alias: 'u',
-                type: 'string',
-                demandOption: true
-            })
-            .option('password', {
-                describe: 'Salesforce password',
-                alias: 'p',
-                type: 'string',
-                demandOption: true
-            })
+
             .option('token', {
                 describe: 'Salesforce api token',
                 alias: 't',
@@ -57,13 +65,7 @@ async function run() {
                 alias: 'at',
                 type: 'string'
             })
-            .option('objects', {
-                describe: 'List of objects to generate types for',
-                alias: 'obj',
-                type: 'string',
-                array: true,
-                demandOption: true
-            })
+
             .option('path', {
                 describe: 'The output folder, default is stdout',
                 alias: 'o',
