@@ -1,6 +1,7 @@
-import { Connection, DescribeSObjectResult, Field, FieldType } from "jsforce";
-import _ from "lodash";
 import * as fs from 'fs';
+import { Connection } from "jsforce";
+import _ from "lodash";
+import { extractSfTypes } from "./extractSfTypes";
 
 export interface ConvertOptions {
     login_url?: string;
@@ -13,100 +14,15 @@ export interface ConvertOptions {
     password: string;
     token?: string;
     objects: string[];
-    output?: string;
+    path?: string;
 }
 
-const TYPE_MAP: Record<Exclude<FieldType, 'picklist'>, string> = {
-    'address': 'string',
-    'anyType': 'any',
-    'base64': 'string',
-    'boolean': 'boolean',
-    'combobox': 'string',
-    'complexvalue': 'unknown',
-    'currency': 'number',
-    'date': 'string',
-    'datetime': 'string',
-    'double': 'number',
-    'email': 'string',
-    'encryptedstring': 'string',
-    'id': 'string',
-    'int': 'number',
-    'location': 'unknown',
-    'multipicklist': 'unknown',
-    'percent': 'number',
-    'reference': 'string',
-    'string': 'string',
-    'textarea': 'string',
-    'time': 'string',
-    'url': 'string',
-    'phone': 'string'
-}
-
-function fieldToType(f: Field) {
-    if (f.type === 'picklist') {
-        return _(f.picklistValues || []).map(v => `\n    "${v.value}" /*${v.label}*/`).join(' | ');
-    }
-    else {
-        return TYPE_MAP[f.type];
-    }
-}
-
-function generateType(d: DescribeSObjectResult, otherNames: string[] = [], path?: string) {
-
-    const usedTypes: string[] = [];
-
-    const getType = (t: string, isArray?: boolean) => {
-
-        const suffix = isArray ? '[]' : '';
-
-        if (otherNames.some(on => on === t)) {
-            usedTypes.push(t);
-            return `${t}${suffix}`;
-        }
-
-        return `object${suffix} /* ${t} */`;
-    }
-    const n = _(d.fields || [])
-        .filter(f => f.type !== 'reference')
-        .reduce((p, v, i) => ({ ...p, [v.name]: fieldToType(v) }), {} as Record<string, string>);
-
-    const r = _(d.fields || [])
-        .filter(f => f.type === 'reference')
-        .reduce((p, v, i) => {
-
-            if (v.relationshipName) {
-                return {
-                    ...p,
-                    [v.relationshipName]: _(v.referenceTo || [])
-                        .map(r => getType(r))
-                        .uniq()
-                        .join(" | ")
-                }
-            }
-
-            return p;
-
-        }, {} as Record<string, string>)
-
-    const c = _(d.childRelationships || [])
-        .reduce((p, v, i) => {
-
-            if (v.relationshipName) {
-                return {
-                    ...p,
-                    [v.relationshipName]: getType(v.childSObject, true)
-                }
-            }
-
-            return p;
-
-        }, {} as Record<string, string>)
-
-
-    return _([
-        ..._(usedTypes).uniq().filter(t => t !== d.name).map(t => `import { ${t} } from "./${t}";`).value(),
-        `export interface ${d.name} {${_({ ...n, ...r, ...c }).map((v, k) => `\n  ${k}: ${v}`).join(';')}  \n}`
-    ]).join('\n');
+export interface RecordTypeAdv {
+    Id: string;
+    Name: String;
+    Description: string;
+    NamespacePrefix: string;
+    DeveloperName: string
 }
 
 
@@ -116,12 +32,28 @@ export async function convert(o: ConvertOptions) {
         loginUrl: o.login_url,
         serverUrl: o.server_url,
         instanceUrl: o.instance_url,
-        clientId: o.client_id,
-        clientSecret: o.client_secret,
-        accessToken: o.access_token
+        accessToken: o.access_token,
+        oauth2: {
+            clientId: o.client_id,
+            clientSecret: o.client_secret
+        }
     });
 
     try {
+
+        async function getRecordType(id: string) {
+
+            const r = await sf.query<RecordTypeAdv>(
+                `SELECT Id, Name, DeveloperName, NamespacePrefix, Description, BusinessProcessId, SobjectType, IsActive, CreatedById, CreatedDate, LastModifiedById, LastModifiedDate, SystemModstamp FROM RecordType where Id = '${id}'`
+            );
+
+            if (!r.records.length) {
+                throw `Unable to find Record type by id ${id}`;
+            }
+
+            return r.records[0];
+        }
+
         console.log('Logging in...');
 
         const u = await sf.login(o.username, `${o.password}${o.token || ''}`); //loginbysoap? //loginbyoauth?
@@ -129,25 +61,35 @@ export async function convert(o: ConvertOptions) {
         try {
             console.log(`id: ${u.id}, org Id: ${u.organizationId}, url: ${u.url}`);
 
-            for (var n of o.objects) {
+            const otherTypeNames = o.objects;
 
-                console.log(`Fetching metadata for object ${n}...`);
+            for (var objectName of otherTypeNames) {
 
-                const d = await sf.describe(n);
+                console.log(`Fetching metadata for object ${objectName}...`);
 
-                const t = generateType(d, o.objects);
+                const describe = await sf.describe(objectName);
 
-                if (o.output) {
-
-                    const f = _([o.output, `${n}.ts`]).compact().join('/');
-
-                    console.log(`Saving to file ${f}...`);
-
-                    await fs.promises.writeFile(f, t);
+                if (!describe) {
+                    throw `Unable to describe ${objectName}`;
                 }
-                else {
-                    console.log(t);
+
+                console.log(`Generatting type ${objectName}...`);
+
+                const recTypeDevNames: Record<string, string> = {};
+
+                for (var ri of describe.recordTypeInfos) {
+
+                    recTypeDevNames[ri.recordTypeId] = ri.master ? 'Master' : (await getRecordType(ri.recordTypeId)).DeveloperName;
                 }
+
+                const body = extractSfTypes({ describe, otherTypeNames, recTypeDevNames, instance: sf.instanceUrl });
+
+                return fs.promises.writeFile(
+                    _([o.path, `${describe.name}.ts`]).compact().join('/'),
+                    body
+                );
+
+
             }
 
             console.log('Done!');
