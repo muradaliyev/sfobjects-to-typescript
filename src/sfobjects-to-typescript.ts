@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import { Connection } from "jsforce";
 import _ from "lodash";
-import { extractSfTypes } from "./extractSfTypes";
+import { extractTypes } from "./extractTypes";
 
-export interface ConvertOptions {
+export interface ExtractOptions {
     login_url?: string;
     server_url?: string;
     instance_url?: string;
@@ -17,7 +17,7 @@ export interface ConvertOptions {
     path?: string;
 }
 
-export interface RecordTypeAdv {
+interface RecordTypeAdv {
     Id: string;
     Name: String;
     Description: string;
@@ -26,7 +26,7 @@ export interface RecordTypeAdv {
 }
 
 
-export async function convert(o: ConvertOptions) {
+export async function exctract(o: ExtractOptions) {
 
     const sf = new Connection({
         loginUrl: o.login_url,
@@ -41,24 +41,25 @@ export async function convert(o: ConvertOptions) {
 
     try {
 
-        async function getRecordType(id: string) {
-
-            const r = await sf.query<RecordTypeAdv>(
-                `SELECT Id, Name, DeveloperName, NamespacePrefix, Description, BusinessProcessId, SobjectType, IsActive, CreatedById, CreatedDate, LastModifiedById, LastModifiedDate, SystemModstamp FROM RecordType where Id = '${id}'`
-            );
-
-            if (!r.records.length) {
-                throw `Unable to find Record type by id ${id}`;
-            }
-
-            return r.records[0];
-        }
-
         console.log('Logging in...');
 
         const u = await sf.login(o.username, `${o.password}${o.token || ''}`); //loginbysoap? //loginbyoauth?
 
         try {
+
+            async function getRecordType(id: string) {
+
+                const r = await sf.query<RecordTypeAdv>(
+                    `SELECT Id, Name, DeveloperName, NamespacePrefix, Description FROM RecordType where Id = '${id}'`
+                );
+
+                if (!r.records.length) {
+                    throw `Unable to find Record type by id ${id}`;
+                }
+
+                return r.records[0];
+            }
+
             console.log(`id: ${u.id}, org Id: ${u.organizationId}, url: ${u.url}`);
 
             const otherTypeNames = o.objects;
@@ -82,13 +83,16 @@ export async function convert(o: ConvertOptions) {
                     recTypeDevNames[ri.recordTypeId] = ri.master ? 'Master' : (await getRecordType(ri.recordTypeId)).DeveloperName;
                 }
 
-                const body = extractSfTypes({ describe, otherTypeNames, recTypeDevNames, instance: sf.instanceUrl });
+                const body = extractTypes({ describe, otherTypeNames, recTypeDevNames, instance: sf.instanceUrl });
 
-                return fs.promises.writeFile(
-                    _([o.path, `${describe.name}.ts`]).compact().join('/'),
-                    body
-                );
+                if (o.path) {
+                    return fs.promises.writeFile(
+                        _([o.path, `${describe.name}.ts`]).compact().join('/'),
+                        body
+                    );
+                }
 
+                console.log(body);
 
             }
 

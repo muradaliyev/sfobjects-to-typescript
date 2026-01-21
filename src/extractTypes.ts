@@ -60,7 +60,7 @@ export interface ExtractorConfig {
 }
 
 
-export function extractSfTypes(o: ExtractorConfig) {
+export function extractTypes(o: ExtractorConfig) {
 
     const { describe, otherTypeNames: otherNames, recTypeDevNames, instance } = o;
 

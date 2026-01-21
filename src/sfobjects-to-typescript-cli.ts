@@ -1,10 +1,14 @@
-import * as yargs from 'yargs';
-import { convert } from './convert';
+import yargs from 'yargs'
+import { hideBin } from 'yargs/helpers'
+import { exctract } from './sfobjects-to-typescript';
 
 async function run() {
 
     if (typeof window === "undefined") {
-        const o = await yargs
+
+        const yarg = yargs(hideBin(process.argv))
+
+        const o = await yarg
             .scriptName('sfobjects-to-typescript')
             .option('login_url', {
                 describe: 'Salesforce login URL e.g. https://login.salesforce.com/',
@@ -18,7 +22,7 @@ async function run() {
             })
             .option('instance_url', {
                 describe: 'Salesforce instance URL e.g. https://na1.salesforce.com/',
-                alias: 'surl',
+                alias: 'iurl',
                 type: 'string'
             })
             .option('client_id', {
@@ -60,7 +64,7 @@ async function run() {
                 array: true,
                 demandOption: true
             })
-            .option('output', {
+            .option('path', {
                 describe: 'The output folder, default is stdout',
                 alias: 'o',
                 type: 'string'
@@ -69,7 +73,7 @@ async function run() {
             .usage("Usage: sfobjects-to-typescript --username <username> --password <password> --objects <object_1> <object _2> [more options]")
             .parse();
 
-        await convert(o);
+        await exctract(o);
     }
 }
 

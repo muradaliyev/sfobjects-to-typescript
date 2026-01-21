@@ -2,10 +2,13 @@
   "name": "sfobjects-to-typescript",
   "version": "1.0.0",
   "description": "Pulls SF objects description and saves as Typescript interfaces",
-  "main": "dist/index.js",
+  "main": "dist/sfobjects-to-typescript.js",
+  "bin": {
+    "sfobjects-to-typescript": "./bin/sfobjects-to-typescript"
+  },
   "scripts": {
-    "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "npm run clean && tsc",
+    "clean": "rimraf dist"
   },
   "author": "Murad Aliyev",
   "license": "ISC",
@@ -15,6 +18,7 @@
     "@types/yargs": "^17.0.32",
     "jsforce": "^3.10.13",
     "lodash": "^4.17.21",
+    "rimraf": "^6.1.2",
     "typescript": "^5.9.3",
     "yargs": "^18.0.0"
   }
