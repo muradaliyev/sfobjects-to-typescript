@@ -14,7 +14,7 @@ export interface ExtractOptions {
     password: string;
     token?: string;
     objects: string[];
-    path?: string;
+    output?: string;
 }
 
 interface RecordTypeAdv {
@@ -85,9 +85,9 @@ export async function exctract(o: ExtractOptions) {
 
                 const body = extractTypes({ describe, otherTypeNames, recTypeDevNames, instance: sf.instanceUrl });
 
-                if (o.path) {
+                if (o.output) {
                     return fs.promises.writeFile(
-                        _([o.path, `${describe.name}.ts`]).compact().join('/'),
+                        _([o.output, `${describe.name}.ts`]).compact().join('/'),
                         body
                     );
                 }

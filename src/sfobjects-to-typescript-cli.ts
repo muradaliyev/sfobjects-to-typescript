@@ -64,13 +64,13 @@ export async function run() {
             type: 'string'
         })
 
-        .option('path', {
+        .option('output', {
             describe: 'The output folder, default is stdout',
             alias: 'o',
             type: 'string'
         })
         .help()
-        .usage("Usage: sfobjects-to-typescript --username <username> --password <password> --objects <object_1> <object _2> [more options]")
+        .usage("Usage: sfobjects-to-typescript --username <username> --password <password> --output <output floder> --objects <object_1> <object _2> [more options]")
         .parse();
 
     await exctract(o);

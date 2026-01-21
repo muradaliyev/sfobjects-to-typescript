@@ -1,36 +1,35 @@
-# Foobar
+# sfobjects-to-typescript
 
-Foobar is an NPM package that.
+sfobjects-to-typescript is an NPM package that pulls Salesforce objects description and saves as Typescript interfaces.
 
 ## Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
+```bash
+npm sfobjects-to-typescript
+```
+
+## Command-line Usage
 
 ```bash
-npm install foobar
+npx sfobjects-to-typescript --username username --password password --output output_floder --objects Object1__c Object2__c
 ```
 
 ## Usage
 
 ```typescript
-import foobar
+import { exctract } from sfobjects-to-typescript
 
-# returns 'words'
-foobar.pluralize('word')
+await extract({        
+    username: 'myuser',
+    password: 'mypassword',    
+    objects: ['Object1__c','Object2__c']
+});
 
-# returns 'geese'
-foobar.pluralize('goose')
-
-# returns 'phenomenon'
-foobar.singularize('phenomena')
 ```
 
 ## Contributing
 
-Pull requests are welcome. For major changes, please open an issue first
-to discuss what you would like to change.
-
-Please make sure to update tests as appropriate.
+--
 
 ## License
 
