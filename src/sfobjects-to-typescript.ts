@@ -28,6 +28,7 @@ interface RecordTypeAdv {
 
 export async function exctract(o: ExtractOptions) {
 
+
     const sf = new Connection({
         loginUrl: o.login_url,
         serverUrl: o.server_url,
@@ -62,7 +63,7 @@ export async function exctract(o: ExtractOptions) {
 
             console.log(`id: ${u.id}, org Id: ${u.organizationId}, url: ${u.url}`);
 
-            const otherTypeNames = o.objects;
+            const otherTypeNames = o.objects;            
 
             for (var objectName of otherTypeNames) {
 
@@ -86,13 +87,13 @@ export async function exctract(o: ExtractOptions) {
                 const body = extractTypes({ describe, otherTypeNames, recTypeDevNames, instance: sf.instanceUrl });
 
                 if (o.output) {
-                    return fs.promises.writeFile(
+                    await fs.promises.writeFile(
                         _([o.output, `${describe.name}.ts`]).compact().join('/'),
                         body
                     );
                 }
 
-                console.log(body);
+                // console.log(body);
 
             }
 
