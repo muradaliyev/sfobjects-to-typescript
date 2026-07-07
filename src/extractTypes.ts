@@ -219,8 +219,12 @@ export function extractTypes(o: ExtractorConfig) {
     }
 
 
-    function renderInterfaceProp(p: ExtractorObjectProp) {
+    function renderInterfacePropOld(p: ExtractorObjectProp) {
         return `  ${p.readOnly ? 'readonly ' : ''}${p.name}${p.optional ? '?' : ''} : ${(p.proxyType === 'multiPicklist' && 'string') || (p.proxyType === 'childTable' && asChildTable(p.typeName)) || p.typeName};`;
+    }
+
+    function renderInterfaceProp(p: ExtractorObjectProp) {
+        return `  ${p.readOnly ? 'readonly ' : ''}${p.name} : ${(p.proxyType === 'multiPicklist' && 'string') || (p.proxyType === 'childTable' && asChildTable(p.typeName)) || p.typeName}${p.optional ? ' | null' : ''};`;
     }
 
     function renderPicklistMap(maps: Record<string, string>, name: string) {
@@ -270,7 +274,7 @@ export function extractTypes(o: ExtractorConfig) {
             .map<ExtractorObjectProp>(v => ({
                 name: v.relationshipName || '__unknown__',
                 readOnly: true,
-                optional: true,
+                optional: false,
                 typeName: getRefType(v.childSObject),
                 proxyType: 'childTable'
             }))
