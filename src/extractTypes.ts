@@ -66,6 +66,8 @@ export function extractTypes(o: ExtractorConfig) {
 
     const usedTypes: string[] = [];
 
+    const dateTypes: string[] = [];
+
     const picklistTypes: Record<string, string> = {};
 
     const picklistArrays: Record<string, string> = {};
@@ -211,6 +213,11 @@ export function extractTypes(o: ExtractorConfig) {
         }
 
         else {
+
+            if (f.type === 'date') {
+                dateTypes.push(f.name);
+            }
+
             return {
                 typeName: TYPE_MAP[f.type],
                 proxyType: 'standard'
@@ -230,6 +237,8 @@ export function extractTypes(o: ExtractorConfig) {
     function renderPicklistMap(maps: Record<string, string>, name: string) {
         return `export const map_${name} : Record<${name},string>={\n${_(maps).mapValues((v, k) => '    ["' + k + '"] : "' + v + '"').values().join(`,\n`)}\n}`
     }
+
+
 
     function renderPicklistHierarchy(parentType: string, hierarchy: Record<string, Record<string, string[]>>) {
         return _(hierarchy)
@@ -285,13 +294,14 @@ export function extractTypes(o: ExtractorConfig) {
         ..._(usedTypes).uniq().filter(t => t !== describe.name).map(t => `import { ${t} } from "./${t}";`).value(),
         `export const instance_${describe.name} = '${instance.toLowerCase().replace('https://', '').replace('http://', '')}';`,
         `export const object_prefix_${describe.name} = '${describe.keyPrefix}';`,
+        !dateTypes.length ? '' : `export const date_types_${describe.name}_array = [\n    "${dateTypes.join(`",\n    "`)}"\n] as const;\n\nexport type Date_Types_${describe.name} = (typeof date_types_${describe.name}_array)[number];`,
         ..._(picklistArrays).mapValues((v, k) => `export const ${k}_array = [${v}  \n] as const;`).values().value(),
         ..._(recordTypeConstants).mapValues((v, k) => `export const RecordType_${k} = '${v}';`).values().value(),
         ..._(picklistTypes).mapValues((v, k) => `export type ${k} = ${v};`).values().value(),
         ..._(picklistMaps).mapValues(renderPicklistMap).values().value(),
         ..._(picklistHierarchies).mapValues((v, k) => renderPicklistHierarchy(k, v)).values().value(),
         `export interface ${describe.name} {\n${objectProps.map(renderInterfaceProp).join('\n')}  \n}`
-    ]).join('\n\n');
+    ]).compact().join('\n\n');
 
 
 }
