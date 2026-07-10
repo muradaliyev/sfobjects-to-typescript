@@ -1,7 +1,7 @@
 import * as fs from 'fs';
-import { Connection } from "jsforce";
 import _ from "lodash";
 import { extractTypes } from "./extractTypes";
+import { SfConnector } from './SfConnector';
 
 export interface ExtractOptions {
     login_url?: string;
@@ -15,98 +15,62 @@ export interface ExtractOptions {
     token?: string;
     objects: string[];
     output?: string;
+    sandbox?: boolean;
+    domain?:string
 }
-
-interface RecordTypeAdv {
-    Id: string;
-    Name: String;
-    Description: string;
-    NamespacePrefix: string;
-    DeveloperName: string
-}
-
 
 export async function exctract(o: ExtractOptions) {
 
-
-    const sf = new Connection({
-        loginUrl: o.login_url,
-        serverUrl: o.server_url,
-        instanceUrl: o.instance_url,
-        accessToken: o.access_token,
-        oauth2: {
-            clientId: o.client_id,
-            clientSecret: o.client_secret
-        }
-    });
 
     try {
 
         console.log('Logging in...');
 
-        const u = await sf.login(o.username, `${o.password}${o.token || ''}`); //loginbysoap? //loginbyoauth?
+        const sf = new SfConnector(o);
 
-        try {
+        await sf.login();
 
-            async function getRecordType(id: string) {
+        const u = await sf.getIdentity();
 
-                const r = await sf.query<RecordTypeAdv>(
-                    `SELECT Id, Name, DeveloperName, NamespacePrefix, Description FROM RecordType where Id = '${id}'`
+        console.log(`id: ${u.id}, org Id: ${u.organization_id}`);
+
+        const otherTypeNames = o.objects;
+
+        for (var objectName of otherTypeNames) {
+
+            console.log(`Fetching metadata for object ${objectName}...`);
+
+            const describe = await sf.describeObject(objectName);
+
+            if (!describe) {
+                throw `Unable to describe ${objectName}`;
+            }
+
+            console.log(`Generatting type ${objectName}...`);
+
+            const recTypeDevNames: Record<string, string> = {};
+
+            for (var ri of describe.recordTypeInfos) {
+
+                recTypeDevNames[ri.recordTypeId] = ri.master ? 'Master' : (await sf.getRecordTypeById(ri.recordTypeId)).DeveloperName;
+            }
+
+            const body = extractTypes({ describe, otherTypeNames, recTypeDevNames, instance: sf.auth.instance_url });
+
+            if (o.output) {
+                await fs.promises.writeFile(
+                    _([o.output, `${describe.name}.ts`]).compact().join('/'),
+                    body
                 );
-
-                if (!r.records.length) {
-                    throw `Unable to find Record type by id ${id}`;
-                }
-
-                return r.records[0];
             }
 
-            console.log(`id: ${u.id}, org Id: ${u.organizationId}, url: ${u.url}`);
+            // console.log(body);
 
-            const otherTypeNames = o.objects;            
-
-            for (var objectName of otherTypeNames) {
-
-                console.log(`Fetching metadata for object ${objectName}...`);
-
-                const describe = await sf.describe(objectName);
-
-                if (!describe) {
-                    throw `Unable to describe ${objectName}`;
-                }
-
-                console.log(`Generatting type ${objectName}...`);
-
-                const recTypeDevNames: Record<string, string> = {};
-
-                for (var ri of describe.recordTypeInfos) {
-
-                    recTypeDevNames[ri.recordTypeId] = ri.master ? 'Master' : (await getRecordType(ri.recordTypeId)).DeveloperName;
-                }
-
-                const body = extractTypes({ describe, otherTypeNames, recTypeDevNames, instance: sf.instanceUrl });
-
-                if (o.output) {
-                    await fs.promises.writeFile(
-                        _([o.output, `${describe.name}.ts`]).compact().join('/'),
-                        body
-                    );
-                }
-
-                // console.log(body);
-
-            }
-
-            console.log('Done!');
         }
-        catch (err) {
-            console.log(`!!!Error: ${err}`);
-        }
-        finally {
-            await sf.logout();
-        }
+
+        console.log('Done!');
     }
-    catch (cerr) {
-        console.log(`!!!Connection error: ${cerr}`)
+    catch (err) {
+        console.log(`!!!Error: ${err}`);
     }
 }

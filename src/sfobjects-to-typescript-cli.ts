@@ -69,6 +69,10 @@ export async function run() {
             alias: 'o',
             type: 'string'
         })
+        .option('sandbox', {
+            describe: 'Salesforce instance is sandbox',
+            type: 'boolean'
+        })
         .help()
         .usage("Usage: sfobjects-to-typescript --username <username> --password <password> --output <output floder> --objects <object_1> <object _2> [more options]")
         .parse();

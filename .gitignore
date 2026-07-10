@@ -11,5 +11,7 @@ yarn-error.log
 *~
 .#*
 dist/
+batch/
 .DS_Store
 .history/
+.env

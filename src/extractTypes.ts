@@ -1,5 +1,6 @@
-import { DescribeSObjectResult, Field } from "jsforce";
+
 import _ from "lodash";
+import { DescribeSObjectResult, Field } from "./DescribeResult";
 
 const TYPE_MAP: Record<string, string> = {
     'address': 'string',
