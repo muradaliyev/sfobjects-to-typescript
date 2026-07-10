@@ -58,11 +58,11 @@ export async function run() {
             alias: 't',
             type: 'string'
         })
-        .option('access_token', {
-            describe: 'Salesforce OAuth2 access token',
-            alias: 'at',
-            type: 'string'
-        })
+        // .option('access_token', {
+        //     describe: 'Salesforce OAuth2 access token',
+        //     alias: 'at',
+        //     type: 'string'
+        // })
 
         .option('output', {
             describe: 'The output folder, default is stdout',
@@ -70,8 +70,14 @@ export async function run() {
             type: 'string'
         })
         .option('sandbox', {
-            describe: 'Salesforce instance is sandbox',
-            type: 'boolean'
+            describe: 'Salesforce sandbox instance name',
+            alias: 'sbx',
+            type: 'string'
+        })
+        .option('domain', {
+            describe: 'Salesforce domain name as in <domain>.my.salesforce.com. If specified with client_id and client_secret, will use "client_credentials" flow',
+            alias: 'dom',
+            type: 'string'
         })
         .help()
         .usage("Usage: sfobjects-to-typescript --username <username> --password <password> --output <output floder> --objects <object_1> <object _2> [more options]")

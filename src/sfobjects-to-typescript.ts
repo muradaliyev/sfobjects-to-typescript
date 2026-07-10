@@ -1,22 +1,11 @@
 import * as fs from 'fs';
-import _ from "lodash";
-import { extractTypes } from "./extractTypes";
-import { SfConnector } from './SfConnector';
 
-export interface ExtractOptions {
-    login_url?: string;
-    server_url?: string;
-    instance_url?: string;
-    client_id?: string;
-    client_secret?: string;
-    access_token?: string;
-    username: string;
-    password: string;
-    token?: string;
+import { extractTypes } from "./extractTypes";
+import { SfConnector, SfConnectorOptions } from './SfConnector';
+
+export interface ExtractOptions extends SfConnectorOptions {
     objects: string[];
     output?: string;
-    sandbox?: boolean;
-    domain?:string
 }
 
 export async function exctract(o: ExtractOptions) {
@@ -59,7 +48,7 @@ export async function exctract(o: ExtractOptions) {
 
             if (o.output) {
                 await fs.promises.writeFile(
-                    _([o.output, `${describe.name}.ts`]).compact().join('/'),
+                    [o.output, `${describe.name}.ts`].filter(Boolean).join('/'),
                     body
                 );
             }
