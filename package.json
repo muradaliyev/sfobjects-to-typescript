@@ -12,7 +12,7 @@
   },
   "scripts": {
     "build": "npm run clean && tsc",
-    "validate": "npm run build && node ./dist/BasicClient.js",
+    "validate": "npm run build && node ./dist/scripts/validate.js",
     "clean": "rimraf dist"
   },
   "author": "Murad Aliyev",

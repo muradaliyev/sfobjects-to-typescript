@@ -121,10 +121,13 @@ export function extractTypes(o: ExtractorConfig) {
         return `{ totalSize: number, done: boolean, records: ${typeName}[] }`;
     }
 
+    function asRecordType() {
+        return `{ readonly Id: string, Name: string, DeveloperName: string, NamespacePrefix: string, Description: string }`;
+    }
+
 
     function fieldToType(f: Field, d: DescribeSObjectResult): Pick<ExtractorObjectProp, 'typeName' | 'proxyType'> {
 
-        //console.log(`[${d.name}]:[${f.name}]:[${f.type}]`)
 
         if (f.name === 'RecordTypeId') {
 
@@ -227,10 +230,6 @@ export function extractTypes(o: ExtractorConfig) {
     }
 
 
-    function renderInterfacePropOld(p: ExtractorObjectProp) {
-        return `  ${p.readOnly ? 'readonly ' : ''}${p.name}${p.optional ? '?' : ''} : ${(p.proxyType === 'multiPicklist' && 'string') || (p.proxyType === 'childTable' && asChildTable(p.typeName)) || p.typeName};`;
-    }
-
     function renderInterfaceProp(p: ExtractorObjectProp) {
         return `  ${p.readOnly ? 'readonly ' : ''}${p.name} : ${(p.proxyType === 'multiPicklist' && 'string') || (p.proxyType === 'childTable' && asChildTable(p.typeName)) || p.typeName}${p.optional ? ' | null' : ''};`;
     }
@@ -253,11 +252,17 @@ export function extractTypes(o: ExtractorConfig) {
 
     // Start
 
-    const objectProps: ExtractorObjectProp[] = (describe.fields || [])
+
+    const objectProps: ExtractorObjectProp[] = [];
+
+    // data props
+
+    objectProps.push(...(describe.fields || [])
         .map(v => ({
             ...fieldToName(v),
             ...fieldToType(v, describe)
-        }));
+        }))
+    );
 
 
     // scalar/many-to-one navigation props
@@ -289,7 +294,6 @@ export function extractTypes(o: ExtractorConfig) {
                 proxyType: 'childTable'
             }))
     );
-
 
     return _([
         ..._(usedTypes).uniq().filter(t => t !== describe.name).map(t => `import { ${t} } from "./${t}";`).value(),

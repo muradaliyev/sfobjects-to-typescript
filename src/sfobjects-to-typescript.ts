@@ -25,6 +25,10 @@ export async function exctract(o: ExtractOptions) {
 
         const otherTypeNames = o.objects;
 
+        if (!otherTypeNames.some(t => (t === 'RecordType'))) {
+            otherTypeNames.push('RecordType');
+        }
+
         for (var objectName of otherTypeNames) {
 
             console.log(`Fetching metadata for object ${objectName}...`);

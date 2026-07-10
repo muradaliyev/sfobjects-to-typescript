@@ -1,4 +1,3 @@
-import "dotenv/config";
 import { Connection } from "jsforce";
 import _ from "lodash";
 
@@ -35,6 +34,8 @@ export interface SfSelectStatement<T = any> { select: T[]; }
 export interface SfWhereStatement<T = any> { where?: T; }
 
 export interface SfFromStatement<N> { from: N; }
+
+export interface SfLimitStatement { limit?: number; }
 
 // Where
 
@@ -150,7 +151,7 @@ export type SfSelectionFromIndex<OI extends Record<string, SfObject>, N extends 
 export type SfWhereFromIndex<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>> = SfWhere<GetObjType<OI, N>, GetObjectTypes<OI>, GetObjDateKeys<OI, N>>;
 
 export type SfRootQuery<OI extends Record<string, SfObject>> = {
-    [N in OnlyStrings<keyof OI>]: SfSelectStatement<SfSelectionFromIndex<OI, N>> & SfWhereStatement<SfWhereFromIndex<OI, N>> & SfFromStatement<N>
+    [N in OnlyStrings<keyof OI>]: SfSelectStatement<SfSelectionFromIndex<OI, N>> & SfWhereStatement<SfWhereFromIndex<OI, N>> & SfFromStatement<N> & SfLimitStatement
 }[OnlyStrings<keyof OI>]
 
 
@@ -307,14 +308,15 @@ function constructWhereStatement(where?: string | Record<string, any>) {
     }
 }
 
-function constructFullQuery(from: string, select: (string | {})[], where?: string | Record<string, any>): string {
+function constructFullQuery(from: string, select: (string | {})[], where?: string | Record<string, any>, limit?: number): string {
 
     return [
         'select',
         constructSelectStatement(select),
         'from',
         from,
-        constructWhereStatement(where)
+        constructWhereStatement(where),
+        limit ? `limit ${limit}` : ''
     ]
         .filter(Boolean)
         .join(' ');
@@ -372,8 +374,8 @@ export class BasicClient<OI extends Record<string, SfObject>> {
     }
 
     soql<Q extends SfRootQuery<OI>>(query: Q) {
-        const { select, from, where } = query;
-        return constructFullQuery(from, select, where);
+        const { select, from, where, limit } = query;
+        return constructFullQuery(from, select, where, limit);
     }
 
     query<Q extends SfRootQuery<OI>>(query: Q) {
@@ -382,6 +384,7 @@ export class BasicClient<OI extends Record<string, SfObject>> {
             query: () => query,
             exec: () => this.exec(query),
             soql: () => this.soql(query),
+            limit: (limit: number) => this.query({ ...query, limit })
         })
     }
 

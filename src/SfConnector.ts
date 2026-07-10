@@ -63,10 +63,7 @@ function httpsRequest(
             });
         });
 
-        req.on("error", (e) => {
-            console.log(6)
-            reject(e)
-        });
+        req.on("error", reject);
 
         if (body) {
             req.write(body);
@@ -106,9 +103,7 @@ export class SfConnector {
             }
         };
 
-        this._auth = await httpsRequest(options, postData);
-
-        console.log(this._auth);
+        this._auth = await httpsRequest(options, postData);        
     }
 
 
@@ -210,9 +205,7 @@ export class SfConnector {
             path: `/services/data/${API_VERSION}/sobjects/${objectName}/describe`,
             method: "GET",
             headers: this.headers
-        };
-
-        console.log(options)
+        };        
 
         return httpsRequest(options);
     }
