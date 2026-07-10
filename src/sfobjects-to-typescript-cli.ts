@@ -11,14 +11,12 @@ export async function run() {
         .option('username', {
             describe: 'Salesforce username',
             alias: 'u',
-            type: 'string',
-            demandOption: true
+            type: 'string'
         })
         .option('password', {
             describe: 'Salesforce password',
             alias: 'p',
-            type: 'string',
-            demandOption: true
+            type: 'string'
         })
         .option('objects', {
             describe: 'List of objects to generate types for',

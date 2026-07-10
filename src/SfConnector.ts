@@ -26,8 +26,8 @@ export interface SfConnectorOptions {
     client_id?: string;
     client_secret?: string;
     access_token?: string;
-    username: string;
-    password: string;
+    username?: string;
+    password?: string;
     token?: string;
     sandbox?: string;
     domain?: string
@@ -97,7 +97,7 @@ export class SfConnector {
         });
 
         const options: https.RequestOptions = {
-            hostname: `https://${domain}${sandbox ? '--' + sandbox : ''}.my.salesforce.com/services/oauth2/token`,
+            hostname: `${domain}${sandbox ? '--' + sandbox : ''}.my.salesforce.com`,
             path: "/services/oauth2/token",
             method: "POST",
             headers: {
@@ -107,6 +107,8 @@ export class SfConnector {
         };
 
         this._auth = await httpsRequest(options, postData);
+
+        console.log(this._auth);
     }
 
 
@@ -144,12 +146,12 @@ export class SfConnector {
             return this._auth;
         }
 
-        const { client_id, client_secret, username, password, login_url, sandbox, token, domain } = this._o;
+        const { client_id, client_secret, username, password, token, domain } = this._o;
 
         if (client_id && client_secret && domain) {
             return this.loginWithClientCredentials();
         }
-        else if (client_id && client_secret && username && password && token) {
+        else if (client_id && client_secret && username && password) {
             return this.loginWithPwdCredentials();
         }
 
@@ -209,6 +211,8 @@ export class SfConnector {
             method: "GET",
             headers: this.headers
         };
+
+        console.log(options)
 
         return httpsRequest(options);
     }
