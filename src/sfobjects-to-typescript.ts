@@ -2,6 +2,8 @@ import * as fs from 'fs';
 
 import { extractTypes } from "./extractTypes";
 import { SfConnector, SfConnectorOptions } from './SfConnector';
+import { DescribeSObjectResult } from './DescribeResult';
+import { generateIndex } from './generateIndex';
 
 export interface ExtractOptions extends SfConnectorOptions {
     objects: string[];
@@ -23,17 +25,23 @@ export async function exctract(o: ExtractOptions) {
 
         console.log(`id: ${u.id}, org Id: ${u.organization_id}`);
 
-        const otherTypeNames = o.objects;
+        const typesIndex = (await Promise.all(await o.objects.map(async (k) => {
+            console.log(`Fetching metadata for object ${k}...`);
+            return { k, d: await sf.describeObject(k) };
+        })))
+            .reduce((p, v) => ({ ...p, [v.k]: v.d }), {} as Record<string, DescribeSObjectResult>)
 
-        if (!otherTypeNames.some(t => (t === 'RecordType'))) {
-            otherTypeNames.push('RecordType');
-        }
+        // if (!otherTypeNames.some(t => (t === 'RecordType'))) {
+        //     otherTypeNames.push('RecordType');
+        // }
 
-        for (var objectName of otherTypeNames) {
+        for (var objectName in typesIndex) {
 
-            console.log(`Fetching metadata for object ${objectName}...`);
+            // console.log(`Fetching metadata for object ${objectName}...`);
 
-            const describe = await sf.describeObject(objectName);
+            // const describe = await sf.describeObject(objectName);
+
+            const describe = typesIndex[objectName];
 
             if (!describe) {
                 throw `Unable to describe ${objectName}`;
@@ -48,7 +56,7 @@ export async function exctract(o: ExtractOptions) {
                 recTypeDevNames[ri.recordTypeId] = ri.master ? 'Master' : (await sf.getRecordTypeById(ri.recordTypeId)).DeveloperName;
             }
 
-            const body = extractTypes({ describe, otherTypeNames, recTypeDevNames, instance: sf.auth.instance_url });
+            const body = extractTypes({ describe, otherTypeNames: Object.keys(typesIndex), recTypeDevNames, instance: sf.auth.instance_url });
 
             if (o.output) {
                 await fs.promises.writeFile(
@@ -56,9 +64,24 @@ export async function exctract(o: ExtractOptions) {
                     body
                 );
             }
+            else {
+                console.log(body);
+            }
 
-            // console.log(body);
+        }
 
+        console.log(`Generating index...`);
+
+        const idx = generateIndex(typesIndex);
+
+        if (o.output) {
+            await fs.promises.writeFile(
+                [o.output, `index.ts`].filter(Boolean).join('/'),
+                idx
+            );
+        }
+        else {
+            console.log(idx);
         }
 
         console.log('Done!');

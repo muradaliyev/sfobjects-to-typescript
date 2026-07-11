@@ -68,6 +68,8 @@ export function extractTypes(o: ExtractorConfig) {
     const usedTypes: string[] = [];
 
     const dateTypes: string[] = [];
+    const dateTimeTypes: string[] = [];
+    const timeTypes: string[] = [];
 
     const picklistTypes: Record<string, string> = {};
 
@@ -222,6 +224,14 @@ export function extractTypes(o: ExtractorConfig) {
                 dateTypes.push(f.name);
             }
 
+            else if (f.type === 'datetime') {
+                dateTimeTypes.push(f.name);
+            }
+
+            else if (f.type === 'time') {
+                timeTypes.push(f.name);
+            }
+
             return {
                 typeName: TYPE_MAP[f.type],
                 proxyType: 'standard'
@@ -249,6 +259,14 @@ export function extractTypes(o: ExtractorConfig) {
             .join('\n')
     }
 
+    // const renderDateTypes = () =>
+    //     renderSpecialTypes(dateTypes,'date_types','Date_Types');
+    //return !dateTypes.length ? '' : `export const date_types_${describe.name}_array = [\n    "${dateTypes.join(`",\n    "`)}"\n] as const;\n\nexport type Date_Types_${describe.name} = (typeof date_types_${describe.name}_array)[number];`;
+
+
+    function renderSpecialTypes(types: string[], constPrefix: string, typePrefix: string) {
+        return !types.length ? '' : `export const ${constPrefix}_${describe.name}_array = [\n    "${types.join(`",\n    "`)}"\n] as const;\n\nexport type ${typePrefix}_${describe.name} = (typeof ${constPrefix}_${describe.name}_array)[number];`;
+    }
 
     // Start
 
@@ -299,7 +317,9 @@ export function extractTypes(o: ExtractorConfig) {
         ..._(usedTypes).uniq().filter(t => t !== describe.name).map(t => `import { ${t} } from "./${t}";`).value(),
         `export const instance_${describe.name} = '${instance.toLowerCase().replace('https://', '').replace('http://', '')}';`,
         `export const object_prefix_${describe.name} = '${describe.keyPrefix}';`,
-        !dateTypes.length ? '' : `export const date_types_${describe.name}_array = [\n    "${dateTypes.join(`",\n    "`)}"\n] as const;\n\nexport type Date_Types_${describe.name} = (typeof date_types_${describe.name}_array)[number];`,
+        renderSpecialTypes(dateTypes,'date_types','Date_Types'),
+        renderSpecialTypes(dateTimeTypes,'date_time_types','Date_Time_Types'),
+        renderSpecialTypes(timeTypes,'time_types','Time_Types'),
         ..._(picklistArrays).mapValues((v, k) => `export const ${k}_array = [${v}  \n] as const;`).values().value(),
         ..._(recordTypeConstants).mapValues((v, k) => `export const RecordType_${k} = '${v}';`).values().value(),
         ..._(picklistTypes).mapValues((v, k) => `export type ${k} = ${v};`).values().value(),

@@ -1,21 +1,28 @@
 import { Connection } from "jsforce";
 import _ from "lodash";
+import { Temporal } from "@js-temporal/polyfill";
 
 
 // **** Common types
 
 // OT = available object types coming from SfObjects index, ie (Account | frm_Grant__c | frm_Allocation__c)
 
+export interface SfObject<O = {}, DK = string, DTK = string, TK = string> {
+    ObjectType: O;
+    DateTypes: DK;
+    DateTimeTypes: DTK;
+    TimeTypes: TK;
+}
+
 type GetObjectTypes<OI extends Record<string, SfObject>> = { [K in keyof OI]: GetObjType<OI, K> }[keyof OI];
 
 type GetObjType<OI extends Record<string, SfObject>, K extends keyof OI> = OI[K]['ObjectType'];
 
 type GetObjDateKeys<OI extends Record<string, SfObject>, K extends keyof OI> = OI[K]['DateTypes'];
+type GetObjDateTimeKeys<OI extends Record<string, SfObject>, K extends keyof OI> = OI[K]['DateTimeTypes'];
+type GetObjTimeKeys<OI extends Record<string, SfObject>, K extends keyof OI> = OI[K]['TimeTypes'];
 
-export interface SfObject<O = {}, DK = string> {
-    ObjectType: O;
-    DateTypes: DK;
-}
+
 
 export type SingleOrArray<T> = (T | T[]);
 
@@ -110,45 +117,45 @@ export type SfPrimitiveWhereKeys<O> = { [K in keyof O]: NonNullable<O[K]> extend
 
 export type SfParentRelWhereKeys<O, OT> = { [K in keyof O]: NonNullable<O[K]> extends OT ? K : never }[keyof O];
 
-export type ValOrDate<O, K extends keyof O, DT> = K extends DT ? Date : O[K];
+export type ValOrDate<O, K extends keyof O, DT, DTT, TT> = K extends DT ? Temporal.PlainDate : K extends DTT ? Temporal.ZonedDateTime : K extends TT ? Temporal.PlainTime : O[K];
 
-export type SfPrimitiveWhere<O, DT> = {
-    [K in SfPrimitiveWhereKeys<O>]+?: SingleOrArray<ValOrDate<O, K, DT>> | { [OPK in SfSingularOpKeys]: SfWhereOp<OPK, ValOrDate<O, K, DT>> }[SfSingularOpKeys] | { [OPK in SfPluralOpKeys]: SfWhereOp<OPK, ValOrDate<O, K, DT>[]> }[SfPluralOpKeys]
+export type SfPrimitiveWhere<O, DT, DTT, TT> = {
+    [K in SfPrimitiveWhereKeys<O>]+?: SingleOrArray<ValOrDate<O, K, DT, DTT, TT>> | { [OPK in SfSingularOpKeys]: SfWhereOp<OPK, ValOrDate<O, K, DT, DTT, TT>> }[SfSingularOpKeys] | { [OPK in SfPluralOpKeys]: SfWhereOp<OPK, ValOrDate<O, K, DT, DTT, TT>[]> }[SfPluralOpKeys]
 }
 
-export type SfParentRelWhere<O, OT, DT> = {
-    [K in SfParentRelWhereKeys<O, OT>]+?: SfWhere<NonNullable<O[K]>, OT, DT>
+export type SfParentRelWhere<O, OT, DT, DTT, TT> = {
+    [K in SfParentRelWhereKeys<O, OT>]+?: SfWhere<NonNullable<O[K]>, OT, DT, DTT, TT>
 }
 
-export type SfLogicalWhere<O, OT, DT> = {
-    [K in SfLogicalOpKeys]: SfWhere<O, OT, DT>;
+export type SfLogicalWhere<O, OT, DT, DTT, TT> = {
+    [K in SfLogicalOpKeys]: SfWhere<O, OT, DT, DTT, TT>;
 }
 
-export type SfWhere<O, OT, DT> = SfPrimitiveWhere<O, DT> | SfParentRelWhere<O, OT, DT> | SfLogicalWhere<O, OT, DT>;
+export type SfWhere<O, OT, DT, DTT, TT> = SfPrimitiveWhere<O, DT, DTT, TT> | SfParentRelWhere<O, OT, DT, DTT, TT> | SfLogicalWhere<O, OT, DT, DTT, TT>;
 
 // select
 
-export type SfSelectAndWhereParts<O, OT, DT> = SfSelectStatement<SfSelection<O, OT, DT>> & SfWhereStatement<SfWhere<O, OT, DT>>;
+export type SfSelectAndWhereParts<O, OT, DT, DTT, TT> = SfSelectStatement<SfSelection<O, OT, DT, DTT, TT>> & SfWhereStatement<SfWhere<O, OT, DT, DTT, TT>>;
 
-export type SfChildRelSelection<O, OT, DT> = {
-    [K in keyof O]: NonNullable<O[K]> extends ChildTable<OT> ? { [P in K]: SfSelectAndWhereParts<NonNullable<O[K]>['records'][0], OT, DT> | SfSelection<NonNullable<O[K]>['records'][0], OT, DT>[] } : never
+export type SfChildRelSelection<O, OT, DT, DTT, TT> = {
+    [K in keyof O]: NonNullable<O[K]> extends ChildTable<OT> ? { [P in K]: SfSelectAndWhereParts<NonNullable<O[K]>['records'][0], OT, DT, DTT, TT> | SfSelection<NonNullable<O[K]>['records'][0], OT, DT, DTT, TT>[] } : never
 }[keyof O];
 
-export type SParentRelSelection<O, OT, DT> = {
-    [K in keyof O]: NonNullable<O[K]> extends OT ? { [P in K]: SfSelection<NonNullable<O[K]>, OT, DT>[] } : never
+export type SParentRelSelection<O, OT, DT, DTT, TT> = {
+    [K in keyof O]: NonNullable<O[K]> extends OT ? { [P in K]: SfSelection<NonNullable<O[K]>, OT, DT, DTT, TT>[] } : never
 }[keyof O];
 
 export type SfPrimitiveSelection<O> = {
     [K in keyof O]: NonNullable<O[K]> extends SfPrimitiveType ? K : never
 }[keyof O];
 
-export type SfSelection<O, OT, DT> = SParentRelSelection<O, OT, DT> | SfChildRelSelection<O, OT, DT> | SfPrimitiveSelection<O>;
+export type SfSelection<O, OT, DT, DTT, TT> = SParentRelSelection<O, OT, DT, DTT, TT> | SfChildRelSelection<O, OT, DT, DTT, TT> | SfPrimitiveSelection<O>;
 
 // Root Query
 
-export type SfSelectionFromIndex<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>> = SfSelection<GetObjType<OI, N>, GetObjectTypes<OI>, GetObjDateKeys<OI, N>>;
+export type SfSelectionFromIndex<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>> = SfSelection<GetObjType<OI, N>, GetObjectTypes<OI>, GetObjDateKeys<OI, N>, GetObjDateTimeKeys<OI, N>, GetObjTimeKeys<OI, N>>;
 
-export type SfWhereFromIndex<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>> = SfWhere<GetObjType<OI, N>, GetObjectTypes<OI>, GetObjDateKeys<OI, N>>;
+export type SfWhereFromIndex<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>> = SfWhere<GetObjType<OI, N>, GetObjectTypes<OI>, GetObjDateKeys<OI, N>, GetObjDateTimeKeys<OI, N>, GetObjTimeKeys<OI, N>>;
 
 export type SfRootQuery<OI extends Record<string, SfObject>> = {
     [N in OnlyStrings<keyof OI>]: SfSelectStatement<SfSelectionFromIndex<OI, N>> & SfWhereStatement<SfWhereFromIndex<OI, N>> & SfFromStatement<N> & SfLimitStatement
@@ -185,6 +192,17 @@ export type SfQueryProjection<OI extends Record<string, SfObject>, Q extends SfR
 
 // Utils
 
+export function isPlainDate(value: unknown): value is Temporal.PlainDate {
+    return toString.call(value) === "[object Temporal.PlainDate]";
+}
+
+export function isZonedDateTime(value: unknown): value is Temporal.ZonedDateTime {
+    return toString.call(value) === "[object Temporal.ZonedDateTime]";
+}
+
+export function isPlainTime(value: unknown): value is Temporal.PlainTime {
+    return toString.call(value) === "[object Temporal.PlainTime]";
+}
 
 function pluralize<T>(v: SingleOrArray<T>): T[] {
 
@@ -197,12 +215,32 @@ function pluralize<T>(v: SingleOrArray<T>): T[] {
 
 function escapeVal(v: any): string {
 
+
     if (typeof v === 'string') {
         return `'${v}'`;
     }
 
-    if (_.isDate(v)) {
-        return v.toDateString();
+    // if (_.isDate(v)) {
+    //     return v.toDateString();
+    // }
+
+    if (isPlainDate(v)) {
+        return v.toJSON();
+    }
+
+    if (isZonedDateTime(v)) {
+
+        return (v
+            .toInstant()
+            .toString({
+                smallestUnit: "millisecond",
+                fractionalSecondDigits: 3,
+            })
+            .replace("Z", "+0000"));
+    }
+
+    if (isPlainTime(v)) {
+        return v.toJSON();
     }
 
     if (typeof v === 'boolean' || typeof v === 'number' || typeof v === 'bigint') {

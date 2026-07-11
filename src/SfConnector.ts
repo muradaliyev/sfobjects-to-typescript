@@ -1,5 +1,6 @@
 import https from "https";
 import querystring from "querystring";
+import { DescribeSObjectResult } from "./DescribeResult";
 
 const SF_SANDBOX_LOGIN_HOST = "test.salesforce.com";
 const SF_LOGIN_HOST = "login.salesforce.com";
@@ -103,7 +104,7 @@ export class SfConnector {
             }
         };
 
-        this._auth = await httpsRequest(options, postData);        
+        this._auth = await httpsRequest(options, postData);
     }
 
 
@@ -198,14 +199,14 @@ export class SfConnector {
         return httpsRequest(options);
     }
 
-    async describeObject(objectName: string) {
+    async describeObject(objectName: string): Promise<DescribeSObjectResult> {
 
         const options: https.RequestOptions = {
             hostname: this.url.hostname,
             path: `/services/data/${API_VERSION}/sobjects/${objectName}/describe`,
             method: "GET",
             headers: this.headers
-        };        
+        };
 
         return httpsRequest(options);
     }
