@@ -14,9 +14,12 @@ export interface SfObject<O = {}, DK = string, DTK = string, TK = string> {
     TimeTypes: TK;
 }
 
-type GetObjectTypes<OI extends Record<string, SfObject>> = { [K in keyof OI]: GetObjType<OI, K> }[keyof OI];
+type SfObjectsIndex = Record<string, SfObject>;
+type GetObjType<OI extends SfObjectsIndex, N extends keyof OI> = OI[N]['ObjectType'];
+type GetObjectTypes<OI extends SfObjectsIndex> = { [K in keyof OI]: GetObjType<OI, K> }[keyof OI];
+type GetSfObject<O, OI extends SfObjectsIndex> = { [N in keyof OI]: O extends GetObjType<OI, N> ? OI[N] : never }[keyof OI];
 
-type GetObjType<OI extends Record<string, SfObject>, K extends keyof OI> = OI[K]['ObjectType'];
+//type GetObjType<OI extends Record<string, SfObject>, K extends keyof OI> = OI[K]['ObjectType'];
 
 type GetObjDateKeys<OI extends Record<string, SfObject>, K extends keyof OI> = OI[K]['DateTypes'];
 type GetObjDateTimeKeys<OI extends Record<string, SfObject>, K extends keyof OI> = OI[K]['DateTimeTypes'];
@@ -115,47 +118,47 @@ export interface SfWhereOp<OP extends SfValueOpKeys, V> {
 
 export type SfPrimitiveWhereKeys<O> = { [K in keyof O]: NonNullable<O[K]> extends SfPrimitiveType ? K : never }[keyof O];
 
-export type SfParentRelWhereKeys<O, OT> = { [K in keyof O]: NonNullable<O[K]> extends OT ? K : never }[keyof O];
+export type SfParentRelWhereKeys<O, OI extends SfObjectsIndex> = { [K in keyof O]: NonNullable<O[K]> extends GetObjectTypes<OI> ? K : never }[keyof O];
 
-export type ValOrDate<O, K extends keyof O, DT, DTT, TT> = K extends DT ? Temporal.PlainDate : K extends DTT ? Temporal.ZonedDateTime : K extends TT ? Temporal.PlainTime : O[K];
+export type ValOrDate<O, K extends keyof O, OB extends SfObject> = K extends OB['DateTypes'] ? Temporal.PlainDate : K extends OB['DateTimeTypes'] ? Temporal.ZonedDateTime : K extends OB['TimeTypes'] ? Temporal.PlainTime : O[K];
 
-export type SfPrimitiveWhere<O, DT, DTT, TT> = {
-    [K in SfPrimitiveWhereKeys<O>]+?: SingleOrArray<ValOrDate<O, K, DT, DTT, TT>> | { [OPK in SfSingularOpKeys]: SfWhereOp<OPK, ValOrDate<O, K, DT, DTT, TT>> }[SfSingularOpKeys] | { [OPK in SfPluralOpKeys]: SfWhereOp<OPK, ValOrDate<O, K, DT, DTT, TT>[]> }[SfPluralOpKeys]
+export type SfPrimitiveWhere<O, OB extends SfObject> = {
+    [K in SfPrimitiveWhereKeys<O>]+?: SingleOrArray<ValOrDate<O, K, OB>> | { [OPK in SfSingularOpKeys]: SfWhereOp<OPK, ValOrDate<O, K, OB>> }[SfSingularOpKeys] | { [OPK in SfPluralOpKeys]: SfWhereOp<OPK, ValOrDate<O, K, OB>[]> }[SfPluralOpKeys]
 }
 
-export type SfParentRelWhere<O, OT, DT, DTT, TT> = {
-    [K in SfParentRelWhereKeys<O, OT>]+?: SfWhere<NonNullable<O[K]>, OT, DT, DTT, TT>
+export type SfParentRelWhere<O, OB extends SfObject, OI extends SfObjectsIndex> = {
+    [K in SfParentRelWhereKeys<O, OI>]+?: SfWhere<NonNullable<O[K]>, OB, OI>
 }
 
-export type SfLogicalWhere<O, OT, DT, DTT, TT> = {
-    [K in SfLogicalOpKeys]: SfWhere<O, OT, DT, DTT, TT>;
+export type SfLogicalWhere<O, OB extends SfObject, OI extends SfObjectsIndex> = {
+    [K in SfLogicalOpKeys]: SfWhere<O, OB, OI>;
 }
 
-export type SfWhere<O, OT, DT, DTT, TT> = SfPrimitiveWhere<O, DT, DTT, TT> | SfParentRelWhere<O, OT, DT, DTT, TT> | SfLogicalWhere<O, OT, DT, DTT, TT>;
+export type SfWhere<O, OB extends SfObject, OI extends SfObjectsIndex> = SfPrimitiveWhere<O, OB> | SfParentRelWhere<O, OB, OI> | SfLogicalWhere<O, OB, OI>;
 
 // select
 
-export type SfSelectAndWhereParts<O, OT, DT, DTT, TT> = SfSelectStatement<SfSelection<O, OT, DT, DTT, TT>> & SfWhereStatement<SfWhere<O, OT, DT, DTT, TT>>;
+export type SfSelectAndWhereParts<O, OB extends SfObject, OI extends SfObjectsIndex> = SfSelectStatement<SfSelection<O, OI>> & SfWhereStatement<SfWhere<O, OB, OI>>;
 
-export type SfChildRelSelection<O, OT, DT, DTT, TT> = {
-    [K in keyof O]: NonNullable<O[K]> extends ChildTable<OT> ? { [P in K]: SfSelectAndWhereParts<NonNullable<O[K]>['records'][0], OT, DT, DTT, TT> | SfSelection<NonNullable<O[K]>['records'][0], OT, DT, DTT, TT>[] } : never
+export type SfChildRelSelection<O, OI extends SfObjectsIndex> = {
+    [K in keyof O]: NonNullable<O[K]> extends ChildTable<GetObjectTypes<OI>> ? { [P in K]: SfSelectAndWhereParts<NonNullable<O[K]>['records'][0], GetSfObject<NonNullable<O[K]>['records'][0], OI>, OI> | SfSelection<NonNullable<O[K]>['records'][0], OI>[] } : never
 }[keyof O];
 
-export type SParentRelSelection<O, OT, DT, DTT, TT> = {
-    [K in keyof O]: NonNullable<O[K]> extends OT ? { [P in K]: SfSelection<NonNullable<O[K]>, OT, DT, DTT, TT>[] } : never
+export type SParentRelSelection<O, OI extends SfObjectsIndex> = {
+    [K in keyof O]: NonNullable<O[K]> extends GetObjectTypes<OI> ? { [P in K]: SfSelection<NonNullable<O[K]>, OI>[] } : never
 }[keyof O];
 
 export type SfPrimitiveSelection<O> = {
     [K in keyof O]: NonNullable<O[K]> extends SfPrimitiveType ? K : never
 }[keyof O];
 
-export type SfSelection<O, OT, DT, DTT, TT> = SParentRelSelection<O, OT, DT, DTT, TT> | SfChildRelSelection<O, OT, DT, DTT, TT> | SfPrimitiveSelection<O>;
+export type SfSelection<O, OI extends SfObjectsIndex> = SParentRelSelection<O, OI> | SfChildRelSelection<O, OI> | SfPrimitiveSelection<O>;
 
 // Root Query
 
-export type SfSelectionFromIndex<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>> = SfSelection<GetObjType<OI, N>, GetObjectTypes<OI>, GetObjDateKeys<OI, N>, GetObjDateTimeKeys<OI, N>, GetObjTimeKeys<OI, N>>;
+export type SfSelectionFromIndex<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>> = SfSelection<GetObjType<OI, N>, OI>;
 
-export type SfWhereFromIndex<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>> = SfWhere<GetObjType<OI, N>, GetObjectTypes<OI>, GetObjDateKeys<OI, N>, GetObjDateTimeKeys<OI, N>, GetObjTimeKeys<OI, N>>;
+export type SfWhereFromIndex<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>> = SfWhere<GetObjType<OI, N>, OI[N], OI>;
 
 export type SfRootQuery<OI extends Record<string, SfObject>> = {
     [N in OnlyStrings<keyof OI>]: SfSelectStatement<SfSelectionFromIndex<OI, N>> & SfWhereStatement<SfWhereFromIndex<OI, N>> & SfFromStatement<N> & SfLimitStatement
