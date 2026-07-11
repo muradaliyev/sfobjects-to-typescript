@@ -1,11 +1,11 @@
 import { Connection } from "jsforce";
-import _ from "lodash";
 import { Temporal } from "@js-temporal/polyfill";
+import { SingleOrArray, isPlainDate, isZonedDateTime, isPlainTime, pluralize, isPlainObject, uniq } from "./utils";
 
 
 // **** Common types
 
-type SingleOrArray<T> = (T | T[]);
+
 
 type SfPrimitiveType = string | number | boolean | bigint;
 
@@ -187,28 +187,6 @@ export type SfSelectProjection<O, S> = SfPrimitiveSelectProjection<O, OnlyString
 export type SfQueryProjection<OI extends Record<string, SfObject>, Q extends SfRootQuery<OI>> = SfSelectProjection<GetObjType<OI, Q['from']>, Q['select'][0]>;
 
 
-// Utils
-
-export function isPlainDate(value: unknown): value is Temporal.PlainDate {
-    return toString.call(value) === "[object Temporal.PlainDate]";
-}
-
-export function isZonedDateTime(value: unknown): value is Temporal.ZonedDateTime {
-    return toString.call(value) === "[object Temporal.ZonedDateTime]";
-}
-
-export function isPlainTime(value: unknown): value is Temporal.PlainTime {
-    return toString.call(value) === "[object Temporal.PlainTime]";
-}
-
-function pluralize<T>(v: SingleOrArray<T>): T[] {
-
-    if (v !== undefined) {
-        return _.isArray(v) ? v : [v];
-    }
-
-    return [];
-}
 
 function escapeVal(v: any): string {
 
@@ -256,19 +234,21 @@ function processWhereStatement(where: Record<string, any>, o?: { prefixes?: stri
 
     const { prefixes, isLogicalNot, isLogicalOr } = o || {};
 
-    const whereStatements = _(where)
-        .map((v, k): (string | undefined) => {
+    const whereStatements = Object.keys(where)
+        .map((k): (string | undefined) => {
 
-            if (_.includes(LOGICAL_OP_KEYS, k)) {
+            const v = where[k];
 
-                if (_.isPlainObject(v)) {
+            if (LOGICAL_OP_KEYS.includes(k as any)) {
+
+                if (isPlainObject(v)) {
                     return processWhereStatement(v, { prefixes, isLogicalOr: (k === OP_KEY_OR), isLogicalNot: (k === OP_KEY_NOT) });
                 }
             }
 
             else {
 
-                if (_.isPlainObject(v)) {
+                if (isPlainObject(v)) {
 
                     const { op, value, values, ...rest } = v;
 
@@ -282,16 +262,18 @@ function processWhereStatement(where: Record<string, any>, o?: { prefixes?: stri
 
                             const { soqlOp, isNot, isPlural } = opRule;
 
-                            if ((isPlural ?? false) === _.isArray(_value)) {
+                            if ((isPlural ?? false) === Array.isArray(_value)) {
 
 
-                                return _([
+                                return [
                                     isNot ? 'not (' : '',
                                     [...(prefixes || []), k].join('.'),
                                     soqlOp,
                                     Array.isArray(_value) ? `(${_value.map(escapeVal).join(',')})` : escapeVal(_value),
                                     isNot ? ')' : '',
-                                ]).compact().join(' ');
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ');
                             }
                         }
                     }
@@ -302,7 +284,7 @@ function processWhereStatement(where: Record<string, any>, o?: { prefixes?: stri
                     }
 
                 }
-                else if (_.isArray(v)) {
+                else if (Array.isArray(v)) {
                     return `${k} in (${v.map(escapeVal).join(',')})`;
                 }
                 else {
@@ -310,8 +292,7 @@ function processWhereStatement(where: Record<string, any>, o?: { prefixes?: stri
                 }
             }
         })
-        .compact()
-        .value();
+        .filter(Boolean);
 
 
     if (whereStatements.length) {
@@ -360,41 +341,38 @@ function constructFullQuery(from: string, select: (string | {})[], where?: strin
 
 function constructSelectStatement(select: (string | {})[], prefixes: string[] = []): string {
 
-    return select
-        .map(st => {
+    return [
+        ...uniq(select.filter(st => (typeof st === 'string'))).map(st => [...prefixes, st].join('.')),
+        ...select
+            .filter(st => isPlainObject(st))
+            .map(st => Object.keys(st)
+                .map((rsk) => {
 
-            if (typeof st === 'string') {
-                return [...prefixes, st].join('.');
-            }
+                    const rst = st[rsk];
 
-            if (_.isPlainObject(st)) {
+                    if (Array.isArray(rst)) {
+                        return constructSelectStatement(rst, [...prefixes, rsk])
+                    }
 
-                return _(st)
-                    .map((rst, rsk) => {
+                    if (isPlainObject(rst)) {
 
-                        if (Array.isArray(rst)) {
-                            return constructSelectStatement(rst, [...prefixes, rsk])
+                        const { select, where } = rst;
+
+
+                        if (Array.isArray(select)) {
+                            return `(${constructFullQuery(rsk, select, where)})`;
                         }
 
-                        if (_.isPlainObject(rst)) {
+                        // throw error???
+                    }
 
-                            const { select, where } = rst;
-
-
-                            if (Array.isArray(select)) {
-                                return `(${constructFullQuery(rsk, select, where)})`;
-                            }
-
-                            // throw error???
-                        }
-
-                    })
-                    .filter(Boolean)
-                    .join(',');
-            }
-        })
+                })
+                .filter(Boolean)
+                .join(', ')
+            )
+    ]
         .filter(Boolean)
-        .join(',');
+        .join(', ');
 
 }
 

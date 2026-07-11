@@ -1,6 +1,7 @@
 
-import _ from "lodash";
+//import _ from "lodash";
 import { DescribeSObjectResult, Field } from "./DescribeResult";
+import { uniq } from "./utils";
 
 const TYPE_MAP: Record<string, string> = {
     'address': 'string',
@@ -161,7 +162,7 @@ export function extractTypes(o: ExtractorConfig) {
 
             const plTypeName = `Picklist_${describe.name}_${f.name}`;
 
-            picklistArrays[plTypeName] = _(f.picklistValues || []).map(v => `\n    "${v.value}" /*${v.label}*/`).join(',');
+            picklistArrays[plTypeName] = (f.picklistValues || []).map(v => `\n    "${v.value}" /*${v.label}*/`).join(',');
 
             picklistTypes[plTypeName] = `(typeof ${plTypeName}_array)[number]`;
 
@@ -171,7 +172,7 @@ export function extractTypes(o: ExtractorConfig) {
 
             if (f.dependentPicklist && f.controllerName) {
 
-                const controller = _.find(d.fields, cf => (cf.name === f.controllerName));
+                const controller = d.fields.find(cf => (cf.name === f.controllerName));
 
                 if (!controller) {
                     throw `Unable to identify controller for field ${f.name}`
@@ -245,31 +246,24 @@ export function extractTypes(o: ExtractorConfig) {
     }
 
     function renderPicklistMap(maps: Record<string, string>, name: string) {
-        return `export const map_${name} : Record<${name},string>={\n${_(maps).mapValues((v, k) => '    ["' + k + '"] : "' + v + '"').values().join(`,\n`)}\n}`
+        return `export const map_${name} : Record<${name},string>={\n${Object.keys(maps).map(k => '    ["' + k + '"] : "' + maps[k] + '"').join(`,\n`)}\n}`
     }
 
-
-
     function renderPicklistHierarchy(parentType: string, hierarchy: Record<string, Record<string, string[]>>) {
-        return _(hierarchy)
-            .mapValues((v, k) => {
-                return `export const hierarchy_${parentType}_${k}: Partial<Record<${parentType},${k}[]>>={\n` + _(v).mapValues((sv, sk) => `    ["${sk}"]: [${sv.map(s => `"${s}"`).join(',')}]`).values().join(",\n") + `\n}`
+
+        return Object.keys(hierarchy)
+            .map((k) => {
+                const v = hierarchy[k];
+                return `export const hierarchy_${parentType}_${k}: Partial<Record<${parentType},${k}[]>>={\n` + Object.keys(v).map((sk) => `    ["${sk}"]: [${v[sk].map(s => `"${s}"`).join(',')}]`).join(",\n") + `\n}`
             })
-            .values()
             .join('\n')
     }
 
-    // const renderDateTypes = () =>
-    //     renderSpecialTypes(dateTypes,'date_types','Date_Types');
-    //return !dateTypes.length ? '' : `export const date_types_${describe.name}_array = [\n    "${dateTypes.join(`",\n    "`)}"\n] as const;\n\nexport type Date_Types_${describe.name} = (typeof date_types_${describe.name}_array)[number];`;
-
-
-    function renderSpecialTypes(types: string[], constPrefix: string, typePrefix: string) {
-        return !types.length ? '' : `export const ${constPrefix}_${describe.name}_array = [\n    "${types.join(`",\n    "`)}"\n] as const;\n\nexport type ${typePrefix}_${describe.name} = (typeof ${constPrefix}_${describe.name}_array)[number];`;
-    }
+    // function renderSpecialTypes(types: string[], constPrefix: string, typePrefix: string) {
+    //     return !types.length ? '' : `export const ${constPrefix}_${describe.name}_array = [\n    "${types.join(`",\n    "`)}"\n] as const;\n\nexport type ${typePrefix}_${describe.name} = (typeof ${constPrefix}_${describe.name}_array)[number];`;
+    // }
 
     // Start
-
 
     const objectProps: ExtractorObjectProp[] = [];
 
@@ -290,10 +284,7 @@ export function extractTypes(o: ExtractorConfig) {
             .filter(f => f.type === 'reference' && f.relationshipName)
             .map<ExtractorObjectProp>(v => ({
                 ...fieldToName(v, true),
-                typeName: _(v.referenceTo || [])
-                    .map(r => getRefType(r))
-                    .uniq()
-                    .join(" | "),
+                typeName: uniq((v.referenceTo || []).map(r => getRefType(r))).join(" | "),
                 proxyType: 'standard'
             }))
     );
@@ -313,20 +304,20 @@ export function extractTypes(o: ExtractorConfig) {
             }))
     );
 
-    return _([
-        ..._(usedTypes).uniq().filter(t => t !== describe.name).map(t => `import { ${t} } from "./${t}";`).value(),
+    return [
+        ...uniq(usedTypes).filter(t => t !== describe.name).map(t => `import { ${t} } from "./${t}";`),
         `export const instance_${describe.name} = '${instance.toLowerCase().replace('https://', '').replace('http://', '')}';`,
         `export const object_prefix_${describe.name} = '${describe.keyPrefix}';`,
-        renderSpecialTypes(dateTypes,'date_types','Date_Types'),
-        renderSpecialTypes(dateTimeTypes,'date_time_types','Date_Time_Types'),
-        renderSpecialTypes(timeTypes,'time_types','Time_Types'),
-        ..._(picklistArrays).mapValues((v, k) => `export const ${k}_array = [${v}  \n] as const;`).values().value(),
-        ..._(recordTypeConstants).mapValues((v, k) => `export const RecordType_${k} = '${v}';`).values().value(),
-        ..._(picklistTypes).mapValues((v, k) => `export type ${k} = ${v};`).values().value(),
-        ..._(picklistMaps).mapValues(renderPicklistMap).values().value(),
-        ..._(picklistHierarchies).mapValues((v, k) => renderPicklistHierarchy(k, v)).values().value(),
+        // renderSpecialTypes(dateTypes, 'date_types', 'Date_Types'),
+        // renderSpecialTypes(dateTimeTypes, 'date_time_types', 'Date_Time_Types'),
+        // renderSpecialTypes(timeTypes, 'time_types', 'Time_Types'),
+        ...Object.keys(picklistArrays).map(k => `export const ${k}_array = [${picklistArrays[k]}  \n] as const;`),
+        ...Object.keys(recordTypeConstants).map(k => `export const RecordType_${k} = '${recordTypeConstants[k]}';`),
+        ...Object.keys(picklistTypes).map(k => `export type ${k} = ${picklistTypes[k]};`),
+        ...Object.keys(picklistMaps).map(k => renderPicklistMap(picklistMaps[k], k)),
+        ...Object.keys(picklistHierarchies).map(k => renderPicklistHierarchy(k, picklistHierarchies[k])),
         `export interface ${describe.name} {\n${objectProps.map(renderInterfaceProp).join('\n')}  \n}`
-    ]).compact().join('\n\n');
+    ].filter(Boolean).join('\n\n');
 
 
 }
