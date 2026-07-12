@@ -42,8 +42,8 @@ type BaseSfObject = { readonly Id: string; }
 type ChildTable<O = BaseSfObject> = { totalSize: number, done: boolean, records: O[] }
 type GetChildProp<O, K extends keyof O> = NonNullable<O[K]> extends ChildTable ? NonNullable<O[K]>['records'][0] : never;
 
-type ChildTablePropKeys<OI extends SfObjectsIndex, N extends keyof OI> = { [K in keyof GetObjType<OI, N>]: GetObjNonNullProp<OI, N, K> extends ChildTable ? GetObjNonNullProp<OI, N, K>['records'][0] extends GetObjectTypes<OI> ? K : never : never }[keyof GetObjType<OI, N>];
-type ParentTablePropKeys<OI extends SfObjectsIndex, N extends keyof OI> = { [K in keyof GetObjType<OI, N>]: GetObjNonNullProp<OI, N, K> extends GetObjectTypes<OI> ? K : never }[keyof GetObjType<OI, N>];
+type ChildRelPropKeys<OI extends SfObjectsIndex, N extends keyof OI> = { [K in keyof GetObjType<OI, N>]: GetObjNonNullProp<OI, N, K> extends ChildTable ? GetObjNonNullProp<OI, N, K>['records'][0] extends GetObjectTypes<OI> ? K : never : never }[keyof GetObjType<OI, N>];
+type ParentRelPropKeys<OI extends SfObjectsIndex, N extends keyof OI> = { [K in keyof GetObjType<OI, N>]: GetObjNonNullProp<OI, N, K> extends GetObjectTypes<OI> ? K : never }[keyof GetObjType<OI, N>];
 type PrimitivePropKeys<OI extends SfObjectsIndex, N extends keyof OI> = { [K in keyof GetObjType<OI, N>]: GetObjNonNullProp<OI, N, K> extends SfPrimitiveType ? K : never }[keyof GetObjType<OI, N>];
 
 
@@ -56,13 +56,10 @@ type GetObjNonNullProp<OI extends SfObjectsIndex, N extends keyof OI, K extends 
 
 type GetObjNonNullChildProp<OI extends SfObjectsIndex, N extends keyof OI, K extends keyof GetObjType<OI, N>> = GetChildProp<GetObjType<OI, N>, K>;
 
-type GetSfObjectParentPropIndexKey<OI extends SfObjectsIndex, N extends keyof OI, K extends ParentTablePropKeys<OI, N>> = GetSfObjectIndexKey<GetObjNonNullProp<OI, N, K>, OI>;
-type GetSfObjectChildPropIndexKey<OI extends SfObjectsIndex, N extends keyof OI, K extends ChildTablePropKeys<OI, N>> = GetSfObjectIndexKey<GetObjNonNullChildProp<OI, N, K>, OI>;
-
-//GetSfObject<NonNullable<O[K]>['records'][0], OI>
+type GetSfObjectParentPropIndexKey<OI extends SfObjectsIndex, N extends keyof OI, K extends ParentRelPropKeys<OI, N>> = GetSfObjectIndexKey<GetObjNonNullProp<OI, N, K>, OI>;
+type GetSfObjectChildPropIndexKey<OI extends SfObjectsIndex, N extends keyof OI, K extends ChildRelPropKeys<OI, N>> = GetSfObjectIndexKey<GetObjNonNullChildProp<OI, N, K>, OI>;
 
 type GetObjectTypes<OI extends SfObjectsIndex> = { [K in keyof OI]: GetObjType<OI, K> }[keyof OI];
-type GetSfObject<O, OI extends SfObjectsIndex> = { [N in GetSfObjectIndexKey<O, OI>]: OI[N] }[GetSfObjectIndexKey<O, OI>];
 type GetSfObjectIndexKey<O, OI extends SfObjectsIndex> = { [N in keyof OI]: O extends GetObjType<OI, N> ? N : never }[keyof OI];
 
 
@@ -131,67 +128,42 @@ const OP_RULES: SfOpRule[] = [
     { ops: OP_KEYS_NLIKE, soqlOp: 'like', isNot: true },
 ]
 
-export interface SfWhereOp<OP extends SfValueOpKeys, V> {
-    op: OP;
-    value: V;
+export interface SfWhereOp<OP extends SfValueOpKeys, V> { op: OP; value: V; }
+
+export type ValOrDate<OI extends SfObjectsIndex, N extends keyof OI, K extends keyof GetObjType<OI, N>> = K extends GetObjDateTypes<OI, N> ? Temporal.PlainDate : K extends GetObjDateTimeTypes<OI, N> ? Temporal.ZonedDateTime : K extends GetObjTimeTypes<OI, N> ? Temporal.PlainTime : GetObjProp<OI, N, K>;
+
+export type SfPrimitiveWhere<OI extends SfObjectsIndex, N extends keyof OI> = {
+    [K in PrimitivePropKeys<OI, N>]+?: SingleOrArray<ValOrDate<OI, N, K>> | { [OPK in SfSingularOpKeys]: SfWhereOp<OPK, ValOrDate<OI, N, K>> }[SfSingularOpKeys] | { [OPK in SfPluralOpKeys]: SfWhereOp<OPK, ValOrDate<OI, N, K>[]> }[SfPluralOpKeys]
 }
 
-export type SfPrimitiveWhereKeys<O> = { [K in keyof O]: NonNullable<O[K]> extends SfPrimitiveType ? K : never }[keyof O];
-
-export type SfParentRelWhereKeys<O, OI extends SfObjectsIndex> = { [K in keyof O]: NonNullable<O[K]> extends GetObjectTypes<OI> ? K : never }[keyof O];
-
-export type ValOrDate<K extends keyof GetObjType<OI, N>, N extends keyof OI, OI extends SfObjectsIndex> = K extends GetObjDateTypes<OI, N> ? Temporal.PlainDate : K extends GetObjDateTimeTypes<OI, N> ? Temporal.ZonedDateTime : K extends GetObjTimeTypes<OI, N> ? Temporal.PlainTime : GetObjProp<OI, N, K>;
-
-export type SfPrimitiveWhere<N extends keyof OI, OI extends SfObjectsIndex> = {
-    [K in SfPrimitiveWhereKeys<GetObjType<OI, N>>]+?: SingleOrArray<ValOrDate<K, N, OI>> | { [OPK in SfSingularOpKeys]: SfWhereOp<OPK, ValOrDate<K, N, OI>> }[SfSingularOpKeys] | { [OPK in SfPluralOpKeys]: SfWhereOp<OPK, ValOrDate<K, N, OI>[]> }[SfPluralOpKeys]
+export type SfParentRelWhere<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
+    [K in ParentRelPropKeys<OI, N>]+?: L extends 'overflow' ? never : SfWhere<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>
 }
 
-export type SfParentRelWhere<N extends keyof OI, OI extends SfObjectsIndex, L extends DeepnessLevel> = {
-    [K in SfParentRelWhereKeys<GetObjType<OI, N>, OI>]+?: L extends 'overflow' ? never : SfWhere<GetSfObjectParentPropIndexKey<OI, N, K>, OI, IncrementDeepness<L>>
+export type SfLogicalWhere<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
+    [K in SfLogicalOpKeys]: L extends 'overflow' ? never : SfWhere<OI, N, IncrementDeepness<L>>;
 }
 
-export type SfLogicalWhere<N extends keyof OI, OI extends SfObjectsIndex, L extends DeepnessLevel> = {
-    [K in SfLogicalOpKeys]: L extends 'overflow' ? never : SfWhere<N, OI, IncrementDeepness<L>>;
-}
-
-export type SfWhere<N extends keyof OI, OI extends SfObjectsIndex, L extends DeepnessLevel = '0'> = SfPrimitiveWhere<N, OI> | SfParentRelWhere<N, OI, L> | SfLogicalWhere<N, OI, L>;
+export type SfWhere<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel = '0'> = SfPrimitiveWhere<OI, N> | SfParentRelWhere<OI, N, L> | SfLogicalWhere<OI, N, L>;
 
 // select
 
-export type SfSelectAndWhereParts<N extends keyof OI, OI extends SfObjectsIndex, L extends DeepnessLevel> = SfSelectStatement<SfSelection<N, OI, L>> & SfWhereStatement<SfWhere<N, OI, L>>;
+export type SfSelectAndWhereParts<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = SfSelectStatement<SfSelection<OI, N, L>> & SfWhereStatement<SfWhere<OI, N, L>>;
 
-// export type SfChildRelSelection<O, OI extends SfObjectsIndex> = {
-//     [K in keyof O]: NonNullable<O[K]> extends ChildTable<GetObjectTypes<OI>> ? { [P in K]: SfSelectAndWhereParts<GetSfObject<NonNullable<O[K]>['records'][0], OI>, OI> /*| SfSelection<NonNullable<O[K]>['records'][0], OI>[]*/ } : never
-// }[keyof O];
+export type SfChildRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
+    [K in ChildRelPropKeys<OI, N>]+?: L extends 'overflow' ? never : SfSelectAndWhereParts<OI, GetSfObjectChildPropIndexKey<OI, N, K>, IncrementDeepness<L>>
+}
 
-export type SfChildRelSelection<N extends keyof OI, OI extends SfObjectsIndex, L extends DeepnessLevel> = {
-    [K in ChildTablePropKeys<OI, N>]+?: L extends 'overflow' ? never : SfSelectAndWhereParts<GetSfObjectChildPropIndexKey<OI, N, K>, OI, IncrementDeepness<L>>
-}//[ChildTablePropKeys<OI, N>]
+export type SParentRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
+    [K in ParentRelPropKeys<OI, N>]+?: L extends 'overflow' ? never : SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>[]
+}
 
-
-
-// export type SParentRelSelection<O, OI extends SfObjectsIndex> = {
-//     [K in keyof O]: NonNullable<O[K]> extends GetObjectTypes<OI> ? { [P in K]: SfSelection<NonNullable<O[K]>, OI>[] } : never
-// }[keyof O];
-
-export type SParentRelSelection<N extends keyof OI, OI extends SfObjectsIndex, L extends DeepnessLevel> = {
-    [K in ParentTablePropKeys<OI, N>]+?: L extends 'overflow' ? never : SfSelection<GetSfObjectParentPropIndexKey<OI, N, K>, OI, IncrementDeepness<L>>[]
-}//[ParentTablePropKeys<OI, N>];
-
-
-// export type SfPrimitiveSelection<O> = {
-//     [K in keyof O]: NonNullable<O[K]> extends SfPrimitiveType ? K : never
-// }[keyof O];
-
-export type SfSelection<N extends keyof OI, OI extends SfObjectsIndex, L extends DeepnessLevel = '0'> = SParentRelSelection<N, OI, L> | SfChildRelSelection<N, OI, L> | PrimitivePropKeys<OI, N>;
+export type SfSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel = '0'> = SParentRelSelection<OI, N, L> | SfChildRelSelection<OI, N, L> | PrimitivePropKeys<OI, N>;
 
 // Root Query
 
-
-//export type SfWhereFromIndex<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>> = SfWhere<N, OI>;
-
 export type SfRootQuery<OI extends Record<string, SfObject>> = {
-    [N in OnlyStrings<keyof OI>]: SfSelectStatement<SfSelection<N, OI>> & SfWhereStatement<SfWhere<N, OI>> & SfFromStatement<N> & SfLimitStatement
+    [N in OnlyStrings<keyof OI>]: SfSelectStatement<SfSelection<OI, N>> & SfWhereStatement<SfWhere<OI, N>> & SfFromStatement<N> & SfLimitStatement
 }[OnlyStrings<keyof OI>]
 
 
@@ -437,14 +409,14 @@ export class BasicClient<OI extends Record<string, SfObject>> {
         })
     }
 
-    select<N extends OnlyStrings<keyof OI>, S extends SfSelection<N, OI>>(from: N, pSelect: SingleOrArray<S>) {
+    select<N extends OnlyStrings<keyof OI>, S extends SfSelection<OI, N>>(from: N, pSelect: SingleOrArray<S>) {
 
         const select = pluralize(pSelect);
 
         return {
-            select: <NS extends SfSelection<N, OI>>(nSelect: SingleOrArray<NS>) => this.select(from, [...select, ...pluralize(nSelect)]),
+            select: <NS extends SfSelection<OI, N>>(nSelect: SingleOrArray<NS>) => this.select(from, [...select, ...pluralize(nSelect)]),
             //selectLookup: <S extends SParentRelSelection<GetObjType<OI, N>, OI>>(s: S) => '',
-            where: <W extends SfWhere<N, OI>>(where: W) => this.query({ from, select, where }),
+            where: <W extends SfWhere<OI, N>>(where: W) => this.query({ from, select, where }),
             ...this.query({ from, select })
         }
     };
@@ -452,7 +424,7 @@ export class BasicClient<OI extends Record<string, SfObject>> {
 
     from<N extends OnlyStrings<keyof OI>>(from: N) {
         return {
-            select: <S extends SfSelection<N, OI>>(select: SingleOrArray<S>) => this.select(from, select)
+            select: <S extends SfSelection<OI, N>>(select: SingleOrArray<S>) => this.select(from, select)
         }
     };
 
