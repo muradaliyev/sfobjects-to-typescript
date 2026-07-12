@@ -407,6 +407,7 @@ export class BasicClient<OI extends Record<string, SfObject>> {
 
         return {
             select: <NS extends SfSelectionFromIndex<OI, N>>(nSelect: SingleOrArray<NS>) => this.select(from, [...select, ...pluralize(nSelect)]),
+            //selectLookup: <S extends SParentRelSelection<GetObjType<OI, N>, OI>>(s: S) => '',
             where: <W extends SfWhereFromIndex<OI, N>>(where: W) => this.query({ from, select, where }),
             ...this.query({ from, select })
         }

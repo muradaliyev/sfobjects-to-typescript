@@ -18,7 +18,6 @@
   "author": "Murad Aliyev",
   "license": "ISC",
   "devDependencies": {
-    "@types/lodash": "^4.17.23",
     "@types/node": "^25.9.4",
     "@types/yargs": "^17.0.35",
     "rimraf": "^6.1.2",
