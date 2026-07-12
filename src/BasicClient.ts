@@ -154,11 +154,13 @@ export type SfChildRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L
     [K in ChildRelPropKeys<OI, N>]+?: L extends 'overflow' ? never : SfSelectAndWhereParts<OI, GetSfObjectChildPropIndexKey<OI, N, K>, IncrementDeepness<L>>
 }
 
-export type SParentRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
-    [K in ParentRelPropKeys<OI, N>]+?: L extends 'overflow' ? never : SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>[]
+type SfParentRelSelectionValue<OI extends SfObjectsIndex, N extends keyof OI, K extends ParentRelPropKeys<OI, N>, L extends DeepnessLevel> = L extends 'overflow' ? never : SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>[];
+
+export type SfParentRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
+    [K in ParentRelPropKeys<OI, N>]+?: SfParentRelSelectionValue<OI, N, K, L>;//L extends 'overflow' ? never : SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>[]
 }
 
-export type SfSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel = '0'> = SParentRelSelection<OI, N, L> | SfChildRelSelection<OI, N, L> | PrimitivePropKeys<OI, N>;
+export type SfSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel = '0'> = SfParentRelSelection<OI, N, L> | SfChildRelSelection<OI, N, L> | PrimitivePropKeys<OI, N>;
 
 // Root Query
 
@@ -174,7 +176,6 @@ export type SfPrjPrimitiveKeys<O, S> = { [K in keyof O]: S extends K ? NonNullab
 export type SfPrjParentRelKeys<O, S> = { [K in keyof O]: S extends object ? { [SK in Extract<keyof S, K>]: NonNullable<O[K]> extends object ? NonNullable<O[K]> extends ChildTable ? never : K : never }[Extract<keyof S, K>] : never }[keyof O];
 
 export type SfPrjChildRelKeys<O, S> = { [K in keyof O]: S extends object ? { [SK in Extract<keyof S, K>]: NonNullable<O[K]> extends ChildTable ? K : never }[Extract<keyof S, K>] : never }[keyof O];
-
 
 export type SfPrimitiveSelectProjection<O, S> = { [K in SfPrjPrimitiveKeys<O, S>]: O[K] };
 
@@ -202,10 +203,6 @@ function escapeVal(v: any): string {
     if (typeof v === 'string') {
         return `'${v}'`;
     }
-
-    // if (_.isDate(v)) {
-    //     return v.toDateString();
-    // }
 
     if (isPlainDate(v)) {
         return v.toJSON();
@@ -415,18 +412,67 @@ export class BasicClient<OI extends Record<string, SfObject>> {
 
         return {
             select: <NS extends SfSelection<OI, N>>(nSelect: SingleOrArray<NS>) => this.select(from, [...select, ...pluralize(nSelect)]),
-            //selectLookup: <S extends SParentRelSelection<GetObjType<OI, N>, OI>>(s: S) => '',
+            selectLookup2: <NS extends SfParentRelSelection<OI, N, '0'>>(s: NS) => this.select(from, [...select, s]),
+
+            selectLookup: <NK extends ParentRelPropKeys<OI, N>, L extends DeepnessLevel = '0'>(k: NK, s: SfParentRelSelectionValue<OI, N, NK, L>) => {
+                const pp: SfParentRelSelection<OI, N, L> = {};
+                pp[k] = s;
+                return this.select(from, [...select, pp])
+            },
+
             where: <W extends SfWhere<OI, N>>(where: W) => this.query({ from, select, where }),
             ...this.query({ from, select })
         }
     };
 
+    select2<N extends OnlyStrings<keyof OI>, S extends SfSelection<OI, N>>(from: N, select: S[]) {
+
+
+        return {
+            select2: <NS extends SfSelection<OI, N>>(nSelect: NS) => this.select2(from, [...select, nSelect]),
+
+            selectLookup: <NK extends ParentRelPropKeys<OI, N>, L extends DeepnessLevel = '0'>(k: NK, s: SfParentRelSelectionValue<OI, N, NK, L>) => {
+                const pp: SfParentRelSelection<OI, N, L> = {};
+                pp[k] = s;
+                return this.select2(from, [...select, pp])
+            },
+
+            where: <W extends SfWhere<OI, N>>(where: W) => this.query({ from, select, where }),
+
+            ...this.query({ from, select })
+        }
+    };
+
+    parentSelection<NK extends ParentRelPropKeys<OI, N>, N extends keyof OI, L extends DeepnessLevel>(k: NK, s: SfParentRelSelectionValue<OI, N, NK, L>) {
+        const pp: SfParentRelSelection<OI, N, L> = {}
+        pp[k] = s;
+
+        return pp
+    }
+
 
     from<N extends OnlyStrings<keyof OI>>(from: N) {
         return {
-            select: <S extends SfSelection<OI, N>>(select: SingleOrArray<S>) => this.select(from, select)
+            select: <S extends SfSelection<OI, N>>(select: SingleOrArray<S>) => this.select(from, select),
+            select2: <S extends SfSelection<OI, N>>(select: S[]) => this.select2(from, select),
+            // selectLookup: <NK extends ParentRelPropKeys<OI, N>, L extends DeepnessLevel = '0'>(k: NK, s: SfParentRelSelectionValue<OI, N, NK, L>) => {
+            //     const pp: SfParentRelSelection<OI, N, L> = {};
+            //     pp[k] = s;
+            //     return this.select(from, pp)
+            // },
         }
     };
 
 }
 
+const nk: ParentRelPropKeys<SfObjects, 'frm_Grant__c'> = 'Cash_Source__r';
+
+const ns: SfParentRelSelectionValue<SfObjects, 'frm_Grant__c', 'Cash_Source__r', '0'> = ['AccountNumber']
+
+const ps: SfParentRelSelection<SfObjects, 'frm_Grant__c', '0'> = { [nk]: ns };
+
+/*
+export type SfParentRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
+    [K in ParentRelPropKeys<OI, N>]+?: SfParentRelSelectionValue<OI, N, K, L>;//L extends 'overflow' ? never : SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>[]
+}
+*/
