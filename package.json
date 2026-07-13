@@ -24,9 +24,9 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "^0.5.0",
     "dotenv": "^17.4.2",
     "jsforce": "^3.10.19",
-    "yargs": "^18.0.0",
-    "@js-temporal/polyfill": "^0.5.0"
+    "yargs": "^18.0.0"
   }
 }

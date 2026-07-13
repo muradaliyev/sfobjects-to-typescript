@@ -95,7 +95,7 @@ export class SfConnector {
         });
 
         const options: https.RequestOptions = {
-            hostname: `${domain}${sandbox ? '--' + sandbox : ''}.my.salesforce.com`,
+            hostname: `${domain}${sandbox ? '--' + sandbox + '.sandbox' : ''}.my.salesforce.com`,
             path: "/services/oauth2/token",
             method: "POST",
             headers: {

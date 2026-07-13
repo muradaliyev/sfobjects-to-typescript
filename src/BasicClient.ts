@@ -1,11 +1,8 @@
 import { Connection } from "jsforce";
 import { Temporal } from "@js-temporal/polyfill";
 import { SingleOrArray, isPlainDate, isZonedDateTime, isPlainTime, pluralize, isPlainObject, uniq } from "./utils";
-import { SfObjects } from "./interfaces";
 
 // **** Common types
-
-
 
 type SfPrimitiveType = string | number | boolean | bigint;
 
@@ -156,35 +153,10 @@ export type SfWhere<OI extends SfObjectsIndex, N extends keyof OI, L extends Dee
 
 type SfSelectAndWhereParts<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = SfSelectStatement<SfSelection<OI, N, L>> & SfWhereStatement<SfWhere<OI, N, L>>;
 
-// export type SfChildRelSelectionValue<OI extends SfObjectsIndex, N extends keyof OI, K extends ChildRelPropKeys<OI, N>, L extends DeepnessLevel> = {
-//     [P in K]: L extends 'overflow' ? never : SfSelectAndWhereParts<OI, GetSfObjectChildPropIndexKey<OI, N, P>, IncrementDeepness<L>>
-// }
 
-// export type SfChildRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
-//     [K in ChildRelPropKeys<OI, N>]: {
-//         [P in K]: L extends 'overflow' ? never : SfSelectAndWhereParts<OI, GetSfObjectChildPropIndexKey<OI, N, P>, IncrementDeepness<L>>
-//     }//SfChildRelSelectionValue<OI, N, K, L>
-// }[ChildRelPropKeys<OI, N>]
-
-// type SfParentRelSelectionValue<OI extends SfObjectsIndex, N extends keyof OI, K extends ParentRelPropKeys<OI, N>, L extends DeepnessLevel> = {
-//     [P in K]: L extends 'overflow' ? never : SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, P>, IncrementDeepness<L>>[];
-// }
-
-// export type SfParentRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
-//     [K in ParentRelPropKeys<OI, N>]+?: SfParentRelSelectionValue<OI, N, K, L>;//L extends 'overflow' ? never : SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>[]
-// }
-
-//type SfParentRelSelectionValue<OI extends SfObjectsIndex, N extends keyof OI, K extends ParentRelPropKeys<OI, N>, L extends DeepnessLevel> = L extends 'overflow' ? never : SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>[];
-
-
-// export type SfParentRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
-//     [K in ParentRelPropKeys<OI, N>]: {
-//         [P in K]: L extends 'overflow' ? never : SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, P>, IncrementDeepness<L>>[]; //SfParentRelSelectionValue<OI, N, K, L>//
-//     };
-// }[ParentRelPropKeys<OI, N>];
 type SfParentSelectStatement<K, S = any> = { fromLookup: K, select: S[] };
 
-type SfChildSelectStatement<K, S = any, W = any> = { childTable: K, select: S[], where?: W };
+type SfChildSelectStatement<K, S = any, W = any> = { fromChild: K, select: S[], where?: W };
 
 type SfParentRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
     [K in ParentRelPropKeys<OI, N>]: L extends 'overflow' ? never : SfParentSelectStatement<K, SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>>
@@ -196,7 +168,6 @@ type SfChildRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extend
     //{ childTable: K, select: SfSelection<OI, GetSfObjectChildPropIndexKey<OI, N, K>, IncrementDeepness<L>>[]; where?: SfWhere<OI, GetSfObjectChildPropIndexKey<OI, N, K>, IncrementDeepness<L>> }
 }[ChildRelPropKeys<OI, N>];
 
-type eee = SfChildRelSelection<SfObjects, 'frm_Grant__c', '0'>
 
 export type SfSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel = '0'> = SfParentRelSelection<OI, N, L> | SfChildRelSelection<OI, N, L> | PrimitivePropKeys<OI, N>;
 
@@ -209,42 +180,12 @@ export type SfRootQuery<OI extends Record<string, SfObject>> = {
 
 // projection
 
-//export type SfPrjPrimitiveKeys<O, S> = { [K in keyof O]: S extends K ? NonNullable<O[K]> extends SfPrimitiveType ? K : never : never }[keyof O];
-
-//export type SfPrjParentRelKeys<O, S> = { [K in keyof O]: S extends object ? { [SK in Extract<keyof S, K>]: NonNullable<O[K]> extends object ? NonNullable<O[K]> extends ChildTable ? never : K : never }[Extract<keyof S, K>] : never }[keyof O];
-
-//export type SfPrjChildRelKeys<O, S> = { [K in keyof O]: S extends object ? { [SK in Extract<keyof S, K>]: NonNullable<O[K]> extends ChildTable ? K : never }[Extract<keyof S, K>] : never }[keyof O];
-
-
-
-
 type SfPrjPrimitiveKeys<O, S> = { [K in keyof O]: S extends K ? K : never }[keyof O];
 type SfPrjParentKeys<O, S> = { [K in keyof O]: S extends SfParentSelectStatement<K> ? K : never }[keyof O];
 type SfPrjChildKeys<O, S> = { [K in keyof O]: S extends SfChildSelectStatement<K> ? K : never }[keyof O];
-
-
 type SfPrimitiveSelectProjection<O, S> = { [OK in SfPrjPrimitiveKeys<O, S>]: O[OK] };
-
-
 type SfParentRelSelectProjection<O, S> = { [OK in SfPrjParentKeys<O, S>]: S extends SfParentSelectStatement<OK> ? SfSelectProjection<NonNullable<O[OK]>, S['select'][0]> : never };
-
 type SfChildRelSelectProjection<O, S> = { [OK in SfPrjChildKeys<O, S>]: S extends SfChildSelectStatement<OK> ? O[OK] extends ChildTable ? ChildTable<SfSelectProjection<NonNullable<O[OK]>['records'][0], S['select'][0]>> : never : never };
-
-
-
-// export type SfParentRelSelectProjection<O, S extends object> = {
-//     [K in SfPrjParentRelKeys<O, S>]: {
-//         [SK in Extract<keyof S, K>]: NonNullable<S[SK]> extends any[] ? SfSelectProjection<NonNullable<O[SK]>, NonNullable<S[SK]>[0]> : NonNullable<S[SK]> extends SfSelectStatement ? never : never
-//     }[Extract<keyof S, K>]
-// };
-
-// export type SfChildRelSelectProjection<O, S extends object> = {
-//     [K in SfPrjChildRelKeys<O, S>]: {
-//         [SK in Extract<keyof S, K>]: NonNullable<S[SK]> extends SfSelectStatement ? NonNullable<O[SK]> extends ChildTable ? ChildTable<SfSelectProjection<NonNullable<O[SK]>['records'][0], NonNullable<S[SK]>['select'][0]>> : never : never
-//     }[Extract<keyof S, K>]
-// };
-
-
 
 
 export type SfSelectProjection<O, S> = SfPrimitiveSelectProjection<O, OnlyStrings<S>> & SfParentRelSelectProjection<O, OnlyObjects<S>> & SfChildRelSelectProjection<O, OnlyObjects<S>>;
@@ -399,6 +340,13 @@ function constructFullQuery(from: string, select: (string | {})[], where?: strin
         .join(' ');
 }
 
+function isParentStatement(rst: Record<string, any>): rst is SfParentSelectStatement<string> {
+    return !!rst['fromLookup']
+}
+
+function isChildStatement(rst: Record<string, any>): rst is SfChildSelectStatement<string> {
+    return !!rst['fromChild']
+}
 
 function constructSelectStatement(select: (string | {})[], prefixes: string[] = []): string {
 
@@ -406,31 +354,21 @@ function constructSelectStatement(select: (string | {})[], prefixes: string[] = 
         ...uniq(select.filter(st => (typeof st === 'string'))).map(st => [...prefixes, st].join('.')),
         ...select
             .filter(st => isPlainObject(st))
-            .map(st => Object.keys(st)
-                .map((rsk) => {
 
-                    const rst = st[rsk];
+            .map((rst) => {
 
-                    if (Array.isArray(rst)) {
-                        return constructSelectStatement(rst, [...prefixes, rsk])
-                    }
+                if (isChildStatement(rst)) {
+                    const { fromChild, select, where } = rst;
+                    return `(${constructFullQuery(fromChild, select, where)})`;
+                }
 
-                    if (isPlainObject(rst)) {
+                if (isParentStatement(rst)) {
+                    const { fromLookup, select } = rst;
+                    return constructSelectStatement(select, [...prefixes, fromLookup])
+                }
 
-                        const { select, where } = rst;
-
-
-                        if (Array.isArray(select)) {
-                            return `(${constructFullQuery(rsk, select, where)})`;
-                        }
-
-                        // throw error???
-                    }
-
-                })
-                .filter(Boolean)
-                .join(', ')
-            )
+                // throw error???
+            })
     ]
         .filter(Boolean)
         .join(', ');
