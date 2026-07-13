@@ -1,6 +1,6 @@
-import { Connection } from "jsforce";
 import { Temporal } from "@js-temporal/polyfill";
-import { SingleOrArray, isPlainDate, isZonedDateTime, isPlainTime, pluralize, isPlainObject, uniq } from "./utils";
+import { Connection } from "jsforce";
+import { SingleOrArray, isPlainDate, isPlainObject, isPlainTime, isZonedDateTime, pluralize, uniq } from "./utils";
 
 // **** Common types
 
@@ -151,7 +151,7 @@ export type SfWhere<OI extends SfObjectsIndex, N extends keyof OI, L extends Dee
 
 // select
 
-type SfSelectAndWhereParts<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = SfSelectStatement<SfSelection<OI, N, L>> & SfWhereStatement<SfWhere<OI, N, L>>;
+//type SfSelectAndWhereParts<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = SfSelectStatement<SfSelection<OI, N, L>> & SfWhereStatement<SfWhere<OI, N, L>>;
 
 
 type SfParentSelectStatement<K, S = any> = { fromLookup: K, select: S[] };
@@ -165,7 +165,6 @@ type SfParentRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L exten
 
 type SfChildRelSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends DeepnessLevel> = {
     [K in ChildRelPropKeys<OI, N>]: L extends 'overflow' ? never : SfChildSelectStatement<K, SfSelection<OI, GetSfObjectChildPropIndexKey<OI, N, K>, IncrementDeepness<L>>, SfWhere<OI, GetSfObjectChildPropIndexKey<OI, N, K>, IncrementDeepness<L>>>
-    //{ childTable: K, select: SfSelection<OI, GetSfObjectChildPropIndexKey<OI, N, K>, IncrementDeepness<L>>[]; where?: SfWhere<OI, GetSfObjectChildPropIndexKey<OI, N, K>, IncrementDeepness<L>> }
 }[ChildRelPropKeys<OI, N>];
 
 
@@ -183,15 +182,14 @@ export type SfRootQuery<OI extends Record<string, SfObject>> = {
 type SfPrjPrimitiveKeys<O, S> = { [K in keyof O]: S extends K ? K : never }[keyof O];
 type SfPrjParentKeys<O, S> = { [K in keyof O]: S extends SfParentSelectStatement<K> ? K : never }[keyof O];
 type SfPrjChildKeys<O, S> = { [K in keyof O]: S extends SfChildSelectStatement<K> ? K : never }[keyof O];
+type WrapParent<T, S> = T extends null ? null : SfSelectProjection<T, S>;
+type WrapChild<T, S> = T extends null ? null : T extends ChildTable ? ChildTable<SfSelectProjection<T['records'][0], S>> : never;
 type SfPrimitiveSelectProjection<O, S> = { [OK in SfPrjPrimitiveKeys<O, S>]: O[OK] };
-type SfParentRelSelectProjection<O, S> = { [OK in SfPrjParentKeys<O, S>]: S extends SfParentSelectStatement<OK> ? SfSelectProjection<NonNullable<O[OK]>, S['select'][0]> : never };
-type SfChildRelSelectProjection<O, S> = { [OK in SfPrjChildKeys<O, S>]: S extends SfChildSelectStatement<OK> ? O[OK] extends ChildTable ? ChildTable<SfSelectProjection<NonNullable<O[OK]>['records'][0], S['select'][0]>> : never : never };
-
-
-export type SfSelectProjection<O, S> = SfPrimitiveSelectProjection<O, OnlyStrings<S>> & SfParentRelSelectProjection<O, OnlyObjects<S>> & SfChildRelSelectProjection<O, OnlyObjects<S>>;
+type SfParentRelSelectProjection<O, S> = { [OK in SfPrjParentKeys<O, S>]: S extends SfParentSelectStatement<OK> ? WrapParent<O[OK], S['select'][0]> : never };
+type SfChildRelSelectProjection<O, S> = { [OK in SfPrjChildKeys<O, S>]: S extends SfChildSelectStatement<OK> ? WrapChild<O[OK], S['select'][0]> : never };
+type SfSelectProjection<O, S> = SfPrimitiveSelectProjection<O, OnlyStrings<S>> & SfParentRelSelectProjection<O, OnlyObjects<S>> & SfChildRelSelectProjection<O, OnlyObjects<S>>;
 
 export type SfQueryProjection<OI extends Record<string, SfObject>, Q extends SfRootQuery<OI>> = SfSelectProjection<GetObjType<OI, Q['from']>, Q['select'][0]>;
-
 
 
 function escapeVal(v: any): string {
@@ -250,13 +248,13 @@ function processWhereStatement(where: Record<string, any>, o?: { prefixes?: stri
 
             else {
 
+                const keyWithPrefix = [...(prefixes || []), k].join('.');
+
                 if (isPlainObject(v)) {
 
-                    const { op, value, values, ...rest } = v;
+                    const { op, value, ...rest } = v;
 
-                    const _value = values ?? value;
-
-                    if (op !== undefined && _value !== undefined) {
+                    if (op !== undefined && value !== undefined) {
 
                         const opRule = OP_RULES.find(r => r.ops.some(rop => (rop === op)));
 
@@ -264,14 +262,14 @@ function processWhereStatement(where: Record<string, any>, o?: { prefixes?: stri
 
                             const { soqlOp, isNot, isPlural } = opRule;
 
-                            if ((isPlural ?? false) === Array.isArray(_value)) {
+                            if ((isPlural ?? false) === Array.isArray(value)) {
 
 
                                 return [
                                     isNot ? 'not (' : '',
-                                    [...(prefixes || []), k].join('.'),
+                                    keyWithPrefix,
                                     soqlOp,
-                                    Array.isArray(_value) ? `(${_value.map(escapeVal).join(',')})` : escapeVal(_value),
+                                    Array.isArray(value) ? `(${value.map(escapeVal).join(',')})` : escapeVal(value),
                                     isNot ? ')' : '',
                                 ]
                                     .filter(Boolean)
@@ -281,16 +279,15 @@ function processWhereStatement(where: Record<string, any>, o?: { prefixes?: stri
                     }
 
                     else if (op === undefined && value === undefined) {
-
                         return processWhereStatement(rest, { prefixes: [...(prefixes || []), k] })
                     }
 
                 }
                 else if (Array.isArray(v)) {
-                    return `${k} in (${v.map(escapeVal).join(',')})`;
+                    return `${keyWithPrefix} in (${v.map(escapeVal).join(',')})`;
                 }
-                else {
-                    return `${k} = ${escapeVal(v)}`;
+                else {                                        
+                    return `${keyWithPrefix} = ${escapeVal(v)}`;
                 }
             }
         })
@@ -406,9 +403,8 @@ export class BasicClient<OI extends SfObjectsIndex> {
 
         return {
             select: <NS extends SfSelection<OI, N>>(nSelect: SingleOrArray<NS>) => this.select(from, [...select, ...pluralize(nSelect)]),
-
             where: <W extends SfWhere<OI, N>>(where: W) => this.query({ from, select, where }),
-            //...this.query({ from, select })
+            ...this.query({ from, select })
         }
     };
 
@@ -418,15 +414,4 @@ export class BasicClient<OI extends SfObjectsIndex> {
             select: <S extends SfSelection<OI, N>>(select: SingleOrArray<S>) => this.select(from, select)
         }
     };
-
 }
-
-// type TestSfSelection<OI extends Record<string, SfObject>, N extends OnlyStrings<keyof OI>, NK extends ParentRelPropKeys<OI, N>> = {
-//     key: NK,
-//     value: SfParentRelSelectionValue<OI, N, NK, '0'>
-// }
-
-// function test<OI extends SfObjectsIndex, N extends OnlyStrings<keyof OI>, NK extends ParentRelPropKeys<OI, N>, NS extends SfParentRelSelectionValue<OI, N, NK, '0'>, S extends SfParentRelSelection<OI, N, '0'>>(key: NK, value: NS) {
-//     return { [key]: value } as S;
-// }
-
