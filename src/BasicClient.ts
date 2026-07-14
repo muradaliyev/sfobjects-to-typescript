@@ -172,7 +172,7 @@ export type SfSelection<OI extends SfObjectsIndex, N extends keyof OI, L extends
 
 // Root Query
 
-export type SfRootQuery<OI extends Record<string, SfObject>> = {
+export type SfRootQuery<OI extends SfObjectsIndex> = {
     [N in OnlyStrings<keyof OI>]: SfSelectStatement<SfSelection<OI, N>> & SfWhereStatement<SfWhere<OI, N>> & SfFromStatement<N> & SfLimitStatement
 }[OnlyStrings<keyof OI>]
 
@@ -189,7 +189,7 @@ type SfParentRelSelectProjection<O, S> = { [OK in SfPrjParentKeys<O, S>]: S exte
 type SfChildRelSelectProjection<O, S> = { [OK in SfPrjChildKeys<O, S>]: S extends SfChildSelectStatement<OK> ? WrapChild<O[OK], S['select'][0]> : never };
 type SfSelectProjection<O, S> = SfPrimitiveSelectProjection<O, OnlyStrings<S>> & SfParentRelSelectProjection<O, OnlyObjects<S>> & SfChildRelSelectProjection<O, OnlyObjects<S>>;
 
-export type SfQueryProjection<OI extends Record<string, SfObject>, Q extends SfRootQuery<OI>> = SfSelectProjection<GetObjType<OI, Q['from']>, Q['select'][0]>;
+export type SfQueryProjection<OI extends SfObjectsIndex, Q extends SfRootQuery<OI>> = SfSelectProjection<GetObjType<OI, Q['from']>, Q['select'][0]>;
 
 
 function escapeVal(v: any): string {
@@ -286,7 +286,7 @@ function processWhereStatement(where: Record<string, any>, o?: { prefixes?: stri
                 else if (Array.isArray(v)) {
                     return `${keyWithPrefix} in (${v.map(escapeVal).join(',')})`;
                 }
-                else {                                        
+                else {
                     return `${keyWithPrefix} = ${escapeVal(v)}`;
                 }
             }
@@ -397,16 +397,28 @@ export class BasicClient<OI extends SfObjectsIndex> {
         })
     }
 
-    select<N extends OnlyStrings<keyof OI>, S extends SfSelection<OI, N>>(from: N, pSelect: SingleOrArray<S>) {
+    selectLookup<N extends OnlyStrings<keyof OI>, K extends ParentRelPropKeys<OI, N>, NS extends SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>, L extends DeepnessLevel>(fromLookup: K, select: NS[]) {
+        return { fromLookup, select };
+    }
+
+    select<N extends OnlyStrings<keyof OI>, S extends SfSelection<OI, N, L>, L extends DeepnessLevel = '0'>(from: N, pSelect: SingleOrArray<S>) {
 
         const select = pluralize(pSelect);
 
         return {
             select: <NS extends SfSelection<OI, N>>(nSelect: SingleOrArray<NS>) => this.select(from, [...select, ...pluralize(nSelect)]),
+            selectLookup: <K extends ParentRelPropKeys<OI, N>, NS extends SfSelection<OI, GetSfObjectParentPropIndexKey<OI, N, K>, IncrementDeepness<L>>>(fromLookup: K, nSelect: NS[]) => this.select(from, [...select, this.selectLookup(fromLookup, nSelect)]),
             where: <W extends SfWhere<OI, N>>(where: W) => this.query({ from, select, where }),
-            ...this.query({ from, select })
+            ...this.query({ from, select }),
+
+            fromLookup:<K extends ParentRelPropKeys<OI, N>>(fromLookup: K)=>{
+                return {
+
+                }
+            }
         }
     };
+    
 
 
     from<N extends OnlyStrings<keyof OI>>(from: N) {
