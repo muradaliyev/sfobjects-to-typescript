@@ -1,4 +1,5 @@
 import { DescribeSObjectResult, FieldType } from "./DescribeResult";
+import { uniq } from "./utils";
 
 
 export function generateIndexOld(describes: Record<string, DescribeSObjectResult>) {
@@ -62,7 +63,22 @@ export function generateIndex(describes: Record<string, DescribeSObjectResult>) 
             return keys.length ? `['${keys.join(`', '`)}']` : '[]';
         }
 
-        return `    ['${t}']: {\n        dateTypes: ${getTypeKeys('date')},\n        dateTimeTypes: ${getTypeKeys('datetime')},\n        timeTypes: ${getTypeKeys('time')}\n    }`;
+        function getLookupTypes() {
+
+            const kv = describes[t].fields.filter(f => (f.type === 'reference' && !!f.relationshipName)).reduce((p, f, i) => ({ ...p, [f.relationshipName || '']: uniq(f.referenceTo || []).filter(rt => !!describes[rt]) }), {} as Record<string, string[]>)
+
+            //.map(f => `['${f.relationshipName}']: ['${uniq(f.referenceTo || []).filter(rt => !!describes[rt]).join("', '")}']`)
+
+            return `{${Object.keys(kv).filter(k => (kv[k].length === 1)).map(k => `\n            '${k}':'${kv[k][0]}'`).join(', ')}\n        }`;
+        }
+
+        function getChildTableKeys() {
+            const keys = (describes[t].childRelationships || []).map(v => v.relationshipName).filter(n => !!n)
+
+            return keys.length ? `['${keys.join(`', '`)}']` : '[]';
+        }
+
+        return `    '${t}': {\n        dateTypes: ${getTypeKeys('date')},\n        dateTimeTypes: ${getTypeKeys('datetime')},\n        timeTypes: ${getTypeKeys('time')},\n        lookupTypes: ${getLookupTypes()},\n        childTables: ${getChildTableKeys()}\n    }`;
     })
 
 
@@ -70,7 +86,8 @@ export function generateIndex(describes: Record<string, DescribeSObjectResult>) 
 
     return [
         ...typesImport,
-        `\nexport const OBJ_CONFIG = {\n\n${constValues.join(',\n\n')}\n\n}`,
+        `\nexport type SfObjectConfig = { dateTypes: string[], dateTimeTypes: string[], timeTypes: string[], lookupTypes: Record<string,string>, childTables: string[] };`,
+        `\nexport const OBJ_CONFIG: Record<string, SfObjectConfig> = {\n\n${constValues.join(',\n\n')}\n\n}`,
         `\nexport type SfObjects = {\n\n${Object.keys(describes).map((t) => `    ['${t}']: ${t}`).join(',\n\n')}\n\n}`
     ].join('\n')
 }

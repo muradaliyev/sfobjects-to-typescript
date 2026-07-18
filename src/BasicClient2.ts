@@ -1,10 +1,12 @@
 
 //import { SfObjects } from "../interfaces";
 
+//import { OBJ_CONFIG, SfObjectConfig } from "./interfaces";
 import { Account } from "./interfaces/Account";
 import { frm_Allocation__c } from "./interfaces/frm_Allocation__c";
 import { frm_Grant__c } from "./interfaces/frm_Grant__c";
 import { RecordType } from "./interfaces/RecordType";
+import { isPlainObject } from "./utils";
 
 type SfPrimitiveType = string | number | boolean | bigint;
 type ChildTable<O> = { totalSize: number, done: boolean, records: O[] }
@@ -130,9 +132,148 @@ type WhereProps<OO, O extends OO> = {
 type RootWhere<OI> = { [N in keyof OI]: { from: N, where: WhereProps<GetObjectTypes<OI>, OI[N]> } }[keyof OI];
 
 
+// Basic Client
+
+function escapeVal(v: any): string {
 
 
-class TestClass<OI extends {}> {
+    if (typeof v === 'string') {
+        return `'${v}'`;
+    }
+
+    // if (isPlainDate(v)) {
+    //     return v.toJSON();
+    // }
+
+    // if (isZonedDateTime(v)) {
+
+    //     return (v
+    //         .toInstant()
+    //         .toString({
+    //             smallestUnit: "millisecond",
+    //             fractionalSecondDigits: 3,
+    //         })
+    //         .replace("Z", "+0000"));
+    // }
+
+    // if (isPlainTime(v)) {
+    //     return v.toJSON();
+    // }
+
+    if (typeof v === 'boolean' || typeof v === 'number' || typeof v === 'bigint') {
+        return String(v);
+    }
+
+    if (v === null) {
+        return 'null';
+    }
+
+    throw `Unupported value type for where statement`;
+
+}
+/*
+function processWhereStatement(
+    where: Record<string, any>,
+    cfg: Record<string, SfObjectConfig>,
+    o?: { prefixes?: string[], isLogicalOr?: boolean, isLogicalNot?: boolean }
+) {
+
+    const { prefixes, isLogicalNot, isLogicalOr } = o || {};
+
+    const whereStatements = Object.keys(where)
+        .map((k): (string | undefined) => {
+
+            const v = where[k];
+
+            if (LOGICAL_OP_KEYS.includes(k as any)) {
+
+                if (isPlainObject(v)) {
+                    return processWhereStatement(v, cfg, { prefixes, isLogicalOr: (k === OP_KEY_OR), isLogicalNot: (k === OP_KEY_NOT) });
+                }
+            }
+
+            else {
+
+                const keyWithPrefix = [...(prefixes || []), k].join('.');
+
+                if (isPlainObject(v)) {
+
+                    const { op, value, ...rest } = v;
+
+                    if (op !== undefined && value !== undefined) {
+
+                        const opRule = OP_RULES.find(r => r.ops.some(rop => (rop === op)));
+
+                        if (opRule) {
+
+                            const { soqlOp, isNot, isPlural } = opRule;
+
+                            if ((isPlural ?? false) === Array.isArray(value)) {
+
+
+                                return [
+                                    isNot ? 'not (' : '',
+                                    keyWithPrefix,
+                                    soqlOp,
+                                    Array.isArray(value) ? `(${value.map(v => escapeVal(v)).join(',')})` : escapeVal(value),
+                                    isNot ? ')' : '',
+                                ]
+                                    .filter(Boolean)
+                                    .join(' ');
+                            }
+                        }
+                    }
+
+                    else if (op === undefined && value === undefined) {
+                        return processWhereStatement(rest, cfg, { prefixes: [...(prefixes || []), k] })
+                    }
+
+                }
+                else if (Array.isArray(v)) {
+                    return `${keyWithPrefix} in (${v.map(vj => escapeVal(vj)).join(',')})`;
+                }
+                else {
+                    return `${keyWithPrefix} = ${escapeVal(v)}`;
+                }
+            }
+        })
+        .filter(Boolean);
+
+
+    if (whereStatements.length) {
+
+        const joinedStatements = `(${whereStatements.join(isLogicalOr ? ') or (' : ') and (')})`;
+
+        if (isLogicalNot) {
+            return whereStatements.length > 1 ? `not (${joinedStatements})` : `not ${joinedStatements}`;
+        }
+
+        return joinedStatements;
+    }
+}
+
+
+function constructWhereStatement(cfg: Record<string, SfObjectConfig>, where?: string | Record<string, any>) {
+
+    if (where) {
+
+        if (typeof where === 'string') {
+            return where;
+        }
+
+        const whereSt = processWhereStatement(where, cfg);
+
+        if (whereSt?.length) {
+            return `where ${whereSt}`;
+        }
+    }
+}
+
+
+class BasicClient<OI extends {}> {
+
+    constructor(private cfg: Record<string, SfObjectConfig>) { }
+
     testFunc<Q extends RootSelect<OI>>(q: Q) {
         return q as any as RootSelectProj<OI, Q>;
     }
@@ -151,7 +292,7 @@ type SfObjects = {
 }
 
 
-const testCl = new TestClass<SfObjects>();
+const testCl = new BasicClient<SfObjects>(OBJ_CONFIG);
 
 const ww = testCl.testWhere(
     {
@@ -207,4 +348,4 @@ tt.Allocations__r?.records[0].Amendment__c
 
 
 
-//OI extends SfObjectsIndex, N extends keyof OI
+//OI extends SfObjectsIndex, N extends keyof OI*/
