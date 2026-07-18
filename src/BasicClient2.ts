@@ -228,7 +228,7 @@ function processWhereStatement(
 
                 }
                 else if (Array.isArray(v)) {
-                    return `${keyWithPrefix} in (${v.map(vj => escapeVal(oCfg, k, vj)).join(',')})`;
+                    return `${keyWithPrefix} in (${v.map(vj => escapeVal(oCfg, k, vj)).join(', ')})`;
                 }
                 else {
                     return `${keyWithPrefix} = ${escapeVal(oCfg, k, v)}`;
