@@ -27,7 +27,7 @@ export function generateIndexOld(describes: Record<string, DescribeSObjectResult
 }
 
 
-export function generateIndex(describes: Record<string, DescribeSObjectResult>) {
+export function generateIndexNold(describes: Record<string, DescribeSObjectResult>) {
 
     const objectValues = Object.keys(describes).map((t) => {
 
@@ -46,5 +46,31 @@ export function generateIndex(describes: Record<string, DescribeSObjectResult>) 
     return [
         ...typesImport,
         `\nexport type SfObjects = {\n\n${objectValues.join(',\n\n')}\n\n}`
+    ].join('\n')
+}
+
+
+export function generateIndex(describes: Record<string, DescribeSObjectResult>) {
+
+
+    const constValues = Object.keys(describes).map((t) => {
+
+        function getTypeKeys(ft: FieldType) {
+
+            const keys = describes[t].fields.filter(f => f.type === ft).map(f => f.name)
+
+            return keys.length ? `['${keys.join(`', '`)}']` : '[]';
+        }
+
+        return `    ['${t}']: {\n        dateTypes: ${getTypeKeys('date')},\n        dateTimeTypes: ${getTypeKeys('datetime')},\n        timeTypes: ${getTypeKeys('time')}\n    }`;
+    })
+
+
+    const typesImport = Object.keys(describes).map(t => `import { ${t} } from "./${t}";`);
+
+    return [
+        ...typesImport,
+        `\nexport const OBJ_CONFIG = {\n\n${constValues.join(',\n\n')}\n\n}`,
+        `\nexport type SfObjects = {\n\n${Object.keys(describes).map((t) => `    ['${t}']: ${t}`).join(',\n\n')}\n\n}`
     ].join('\n')
 }

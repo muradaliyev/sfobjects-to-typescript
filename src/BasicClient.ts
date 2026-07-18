@@ -1,11 +1,6 @@
 import { Temporal } from "@js-temporal/polyfill";
 import { Connection } from "jsforce";
-import { SingleOrArray, isPlainDate, isPlainObject, isPlainTime, isZonedDateTime, pluralize, uniq } from "./utils";
-import { SfObjects } from "./interfaces";
-import { frm_Grant__c } from "./interfaces/frm_Grant__c";
-import { Account } from "./interfaces/Account";
-import { frm_Allocation__c } from "./interfaces/frm_Allocation__c";
-import { RecordType } from "./interfaces/RecordType";
+import { SingleOrArray, isPlainDate, isPlainObject, isPlainTime, isZonedDateTime, uniq } from "./utils";
 
 // **** Common types
 
