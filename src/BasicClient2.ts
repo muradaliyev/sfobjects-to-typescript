@@ -1,7 +1,4 @@
-
-//import { SfObjects } from "../interfaces";
-
-//import { OBJ_CONFIG, SfObjectConfig } from "./interfaces";
+import { OBJ_CONFIG, SfObjectConfig, SfObjects } from "./interfaces";
 import { Account } from "./interfaces/Account";
 import { frm_Allocation__c } from "./interfaces/frm_Allocation__c";
 import { frm_Grant__c } from "./interfaces/frm_Grant__c";
@@ -10,6 +7,7 @@ import { isPlainObject } from "./utils";
 
 type SfPrimitiveType = string | number | boolean | bigint;
 type ChildTable<O> = { totalSize: number, done: boolean, records: O[] }
+type OnlyStrings<S> = S extends string ? S : never;
 
 type GetObjectTypes<OI> = { [K in keyof OI]: OI[K] }[keyof OI];
 
@@ -129,36 +127,23 @@ type WhereProps<OO, O extends OO> = {
 } | { [K in SfLogicalOpKeys]+?: WhereProps<OO, O> } | WhereProps<OO, O>[];
 
 
-type RootWhere<OI> = { [N in keyof OI]: { from: N, where: WhereProps<GetObjectTypes<OI>, OI[N]> } }[keyof OI];
+type RootWhere<OI> = { [N in OnlyStrings<keyof OI>]: { from: N, where: WhereProps<GetObjectTypes<OI>, OI[N]> } }[OnlyStrings<keyof OI>];
 
 
 // Basic Client
 
-function escapeVal(v: any): string {
+function escapeVal(cfg: SfObjectConfig, k: string, v: any): string {
 
 
     if (typeof v === 'string') {
+
+        if (cfg.dateTypes.includes(k) || cfg.dateTimeTypes.includes(k) || cfg.timeTypes.includes(k)) {
+            return v;
+        }
+
         return `'${v}'`;
     }
 
-    // if (isPlainDate(v)) {
-    //     return v.toJSON();
-    // }
-
-    // if (isZonedDateTime(v)) {
-
-    //     return (v
-    //         .toInstant()
-    //         .toString({
-    //             smallestUnit: "millisecond",
-    //             fractionalSecondDigits: 3,
-    //         })
-    //         .replace("Z", "+0000"));
-    // }
-
-    // if (isPlainTime(v)) {
-    //     return v.toJSON();
-    // }
 
     if (typeof v === 'boolean' || typeof v === 'number' || typeof v === 'bigint') {
         return String(v);
@@ -171,8 +156,19 @@ function escapeVal(v: any): string {
     throw `Unupported value type for where statement`;
 
 }
-/*
+
+function getCfg(from: string, prefixes: string[], cfg: Record<string, SfObjectConfig>) {
+
+    if (prefixes.length) {
+        const [first, ...rest] = prefixes;
+        return getCfg(cfg[from].lookupTypes[first], rest, cfg)
+    }
+
+    return cfg[from];
+}
+
 function processWhereStatement(
+    from: string,
     where: Record<string, any>,
     cfg: Record<string, SfObjectConfig>,
     o?: { prefixes?: string[], isLogicalOr?: boolean, isLogicalNot?: boolean }
@@ -188,13 +184,16 @@ function processWhereStatement(
             if (LOGICAL_OP_KEYS.includes(k as any)) {
 
                 if (isPlainObject(v)) {
-                    return processWhereStatement(v, cfg, { prefixes, isLogicalOr: (k === OP_KEY_OR), isLogicalNot: (k === OP_KEY_NOT) });
+                    return processWhereStatement(from, v, cfg, { prefixes, isLogicalOr: (k === OP_KEY_OR), isLogicalNot: (k === OP_KEY_NOT) });
                 }
             }
 
             else {
 
                 const keyWithPrefix = [...(prefixes || []), k].join('.');
+
+                const oCfg = getCfg(from, prefixes || [], cfg);
+
 
                 if (isPlainObject(v)) {
 
@@ -210,12 +209,11 @@ function processWhereStatement(
 
                             if ((isPlural ?? false) === Array.isArray(value)) {
 
-
                                 return [
                                     isNot ? 'not (' : '',
                                     keyWithPrefix,
                                     soqlOp,
-                                    Array.isArray(value) ? `(${value.map(v => escapeVal(v)).join(',')})` : escapeVal(value),
+                                    Array.isArray(value) ? `(${value.map(v => escapeVal(oCfg, k, v)).join(',')})` : escapeVal(oCfg, k, value),
                                     isNot ? ')' : '',
                                 ]
                                     .filter(Boolean)
@@ -225,15 +223,15 @@ function processWhereStatement(
                     }
 
                     else if (op === undefined && value === undefined) {
-                        return processWhereStatement(rest, cfg, { prefixes: [...(prefixes || []), k] })
+                        return processWhereStatement(from, rest, cfg, { prefixes: [...(prefixes || []), k] })
                     }
 
                 }
                 else if (Array.isArray(v)) {
-                    return `${keyWithPrefix} in (${v.map(vj => escapeVal(vj)).join(',')})`;
+                    return `${keyWithPrefix} in (${v.map(vj => escapeVal(oCfg, k, vj)).join(',')})`;
                 }
                 else {
-                    return `${keyWithPrefix} = ${escapeVal(v)}`;
+                    return `${keyWithPrefix} = ${escapeVal(oCfg, k, v)}`;
                 }
             }
         })
@@ -253,7 +251,7 @@ function processWhereStatement(
 }
 
 
-function constructWhereStatement(cfg: Record<string, SfObjectConfig>, where?: string | Record<string, any>) {
+function constructWhereStatement(from: string, cfg: Record<string, SfObjectConfig>, where?: string | Record<string, any>) {
 
     if (where) {
 
@@ -261,7 +259,7 @@ function constructWhereStatement(cfg: Record<string, SfObjectConfig>, where?: st
             return where;
         }
 
-        const whereSt = processWhereStatement(where, cfg);
+        const whereSt = processWhereStatement(from, where, cfg);
 
         if (whereSt?.length) {
             return `where ${whereSt}`;
@@ -270,7 +268,7 @@ function constructWhereStatement(cfg: Record<string, SfObjectConfig>, where?: st
 }
 
 
-class BasicClient<OI extends {}> {
+export class BasicClient<OI extends {}> {
 
     constructor(private cfg: Record<string, SfObjectConfig>) { }
 
@@ -279,73 +277,17 @@ class BasicClient<OI extends {}> {
     }
 
     testWhere<Q extends RootWhere<OI>>(q: Q) {
-        return q;
+        return constructWhereStatement(q.from, this.cfg, q.where)
+        //return q;
     }
 }
 
 
-type SfObjects = {
-    'frm_Allocation__c': frm_Allocation__c,
-    'frm_Grant__c': frm_Grant__c,
-    'Account': Account,
-    'RecordType': RecordType
-}
-
-
-const testCl = new BasicClient<SfObjects>(OBJ_CONFIG);
-
-const ww = testCl.testWhere(
-    {
-        'from': 'frm_Grant__c',
-        where: {
-            'Stage__c': 'GSSC Review',
-            'Active__c': {
-                'op': '==',
-                'value': true
-            },
-            'Account_Donor_Name__r': {
-                'Account_Category__c': 'Corporate'
-            },
-            '__and': {
-                'Active__c': [true, null]
-            }
-        }
-    }
-)
-
-
-const tt = testCl.testFunc({
-    from: 'frm_Grant__c',
-    select: [
-        'Id',
-        'Active__c',
-        'Stage__c',
-        {
-            'from': 'Account_Donor_Name__r',
-            select: [
-                'AccountNumber',
-                'AccountSource'
-            ]
-        },
-        {
-            from: 'Allocations__r',
-            select: [
-                'Amendment__c'
-            ]
-        },
-        {
-            from: 'Mother_Grant__r',
-            select: [
-                'Active__c',
-                'Stage__c'
-            ]
-        }
-    ]
-})
-
-tt.Allocations__r?.records[0].Amendment__c
 
 
 
 
-//OI extends SfObjectsIndex, N extends keyof OI*/
+
+
+
+//OI extends SfObjectsIndex, N extends keyof OI
