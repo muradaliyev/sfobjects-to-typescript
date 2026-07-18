@@ -438,69 +438,57 @@ interface FromLookup<OI extends SfObjectsIndex, N extends OnlyStrings<keyof OI>,
 
 
 
+// selection
 
-type PropSelect<OO, O> = {
+type SelectStm<OO, O extends OO, K> = { from: K, select: PropSelect<OO, O>[] } // select must point to further generic type, otherwise will give recursive error
+
+type PropSelect<OO, O extends OO> = {
     [K in keyof O]:
     NonNullable<O[K]> extends SfPrimitiveType ? K :
-    NonNullable<O[K]> extends ChildTable<OO> ? { from: K, select: PropSelect<OO, NonNullable<O[K]>['records'][0]>[] } :
-    NonNullable<O[K]> extends OO ? { from: K, select: PropSelect<OO, NonNullable<O[K]>>[] } :
+    NonNullable<O[K]> extends ChildTable<OO> ? SelectStm<OO, NonNullable<O[K]>['records'][0], K> :
+    NonNullable<O[K]> extends OO ? SelectStm<OO, NonNullable<O[K]>, K> :
     never
 }[keyof O]
 
-//type TestNav<OI extends SfObjectsIndex, O> = { select: (TestNavParent<OI, O> | TestNavChild<OI, O>)[] };
+
 type RootSelect<OI extends SfObjectsIndex> = { [N in keyof OI]: { from: N, select: PropSelect<GetObjectTypes<OI>, GetObjType<OI, N>>[] } }[keyof OI];
 
 
-
-
-
-// type SfPrjPrimitiveKeys<O, S> = { [K in keyof O]: S extends K ? K : never }[keyof O];
-// type SfPrjParentKeys<O, S> = { [K in keyof O]: S extends SfParentSelectStatement<K> ? K : never }[keyof O];
-// type SfPrjChildKeys<O, S> = { [K in keyof O]: S extends SfChildSelectStatement<K> ? K : never }[keyof O];
-// type WrapParent<T, S> = T extends null ? null : SfSelectProjection<T, S>;
-// type WrapChild<T, S> = T extends null ? null : T extends ChildTable ? ChildTable<SfSelectProjection<T['records'][0], S>> : never;
-// type SfPrimitiveSelectProjection<O, S> = { [OK in SfPrjPrimitiveKeys<O, S>]: O[OK] };
-// type SfParentRelSelectProjection<O, S> = { [OK in SfPrjParentKeys<O, S>]: S extends SfParentSelectStatement<OK> ? WrapParent<O[OK], S['select'][0]> : never };
-// type SfChildRelSelectProjection<O, S> = { [OK in SfPrjChildKeys<O, S>]: S extends SfChildSelectStatement<OK> ? WrapChild<O[OK], S['select'][0]> : never };
-// type SfSelectProjection<O, S> = SfPrimitiveSelectProjection<O, OnlyStrings<S>> & SfParentRelSelectProjection<O, OnlyObjects<S>> & SfChildRelSelectProjection<O, OnlyObjects<S>>;
-
-// export type SfQueryProjection<OI extends SfObjectsIndex, Q extends SfRootQuery<OI>> = SfSelectProjection<GetObjType<OI, Q['from']>, Q['select'][0]>;
+// projection
 
 type SelectProjKeys<S, O> = { [K in keyof O]: K extends S ? K : S extends { from: K } ? K : never }[keyof O]
 
+type WrapNull<T> = T extends null ? null : never;
 
 type SelectProj<S, O, OO> = {
     [K in SelectProjKeys<S, O>]: WrapNull<O[K]> | (
         S extends K ? O[K] : (
             S extends { from: K, select: any[] } ? (
-                NonNullable<O[K]> extends OO ? SelectProj<S['select'][0], NonNullable<O[K]>, OO> :
-                NonNullable<O[K]> extends ChildTable<OO> ? ChildTable<SelectProj<S['select'][0], NonNullable<O[K]>['records'][0], OO>> :
-                never
+                NonNullable<O[K]> extends OO ? SelectProj<S['select'][0], NonNullable<O[K]>, OO> : (
+                    NonNullable<O[K]> extends ChildTable<OO> ? ChildTable<SelectProj<S['select'][0], NonNullable<O[K]>['records'][0], OO>> :
+                    never
+                )
             ) : never
         )
     )
 }
 
-type WrapNull<T> = T extends null ? null : never;
-
-type eee = WrapNull<frm_Grant__c['Mother_Grant__r']>
-
-type SelectRootProj<OI extends SfObjectsIndex, Q extends RootSelect<OI>> = SelectProj<Q['select'][0], GetObjType<OI, Q['from']>, GetObjectTypes<OI>>
 
 
-type SelectRootTest<OI extends SfObjectsIndex, Q extends RootSelect<OI>> = SelectProjKeys<Q['select'][0], GetObjType<OI, Q['from']>> //GetObjType<OI, Q['from']>;//Q['select'][0];
-
+type RootSelectProj<OI extends SfObjectsIndex, Q extends RootSelect<OI>> = SelectProj<Q['select'][0], GetObjType<OI, Q['from']>, GetObjectTypes<OI>>
 
 
 class TestClass<OI extends {}> {
     testFunc<Q extends RootSelect<OI>>(q: Q) {
-        return q as any as SelectRootProj<OI, Q>;
+        return q as any as RootSelectProj<OI, Q>;
     }
 }
 
 
 
 const testCl = new TestClass<SfObjects>();
+
+
 
 const tt = testCl.testFunc({
     from: 'frm_Grant__c',
@@ -529,6 +517,8 @@ const tt = testCl.testFunc({
         }
     ]
 })
+
+tt.Account_Donor_Name__r?.AccountNumber
 
 
 
