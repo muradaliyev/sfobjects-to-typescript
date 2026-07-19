@@ -297,7 +297,7 @@ export function extractTypes(o: ExtractorConfig) {
             .map<ExtractorObjectProp>(v => ({
                 name: v.relationshipName || '__unknown__',
                 readOnly: true,
-                optional: false,
+                optional: true,
                 typeName: getRefType(v.childSObject),
                 proxyType: 'childTable'
             }))
