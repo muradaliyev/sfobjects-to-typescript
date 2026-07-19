@@ -1,5 +1,4 @@
 import * as fs from 'fs';
-
 import { extractTypes } from "./extractTypes";
 import { SfConnector, SfConnectorOptions } from './SfConnector';
 import { DescribeSObjectResult } from './DescribeResult';
@@ -90,3 +89,5 @@ export async function exctract(o: ExtractOptions) {
         console.log(`!!!Error: ${err}`);
     }
 }
+
+export * from './BasicClient';

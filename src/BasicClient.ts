@@ -48,7 +48,7 @@ type SelectProj<OO, O extends OO, S> = {
     )
 }
 
-type RootSelectProj<OI, Q extends RootQuery<OI>> = SelectProj<GetObjectTypes<OI>, OI[Q['from']], Q['select'][0]>
+export type RootSelectProj<OI, Q extends RootQuery<OI>> = SelectProj<GetObjectTypes<OI>, OI[Q['from']], Q['select'][0]>
 
 // Where
 
@@ -114,7 +114,7 @@ const OP_RULES: SfOpRule[] = [
     { ops: OP_KEYS_NLIKE, soqlOp: 'like', isNot: true },
 ]
 
-export interface SfWhereOp<OP extends SfValueOpKeys, V> { op: OP; value: V; }
+interface SfWhereOp<OP extends SfValueOpKeys, V> { op: OP; value: V; }
 
 type WhereProps<OO, O extends OO> = {
     [K in keyof O]+?: (
@@ -322,7 +322,6 @@ export class BasicClient<OI> {
 
     constructor(private _cfg: Record<keyof OI, SfObjectConfig>, private _conn: ISfConnection) { }
 
-
     exec<Q extends RootQuery<OI>>(query: Q) {
         return this._conn.query<RootSelectProj<OI, Q>>(this.soql(query));
     }
@@ -340,23 +339,6 @@ export class BasicClient<OI> {
         })
     }
 
-
-    // soql(q: RootQuery<OI>): string {
-
-    //     const { from, select, limit, where } = q;
-
-    //     return constructFullQuery(from, this.cfg, select, where, limit);
-    // }
-
-
-    // testFunc<Q extends RootQuery<OI>>(q: Q) {
-    //     return q as any as RootSelectProj<OI, Q>;
-    // }
-
-    // testSoql<Q extends RootQuery<OI>>(q: Q) {
-    //     return this.soql(q)
-    //     //return q;
-    // }
 }
 
 
