@@ -1,30 +1,29 @@
-import { OBJ_CONFIG, SfObjectConfig, SfObjects } from "./interfaces";
-import { Account } from "./interfaces/Account";
-import { frm_Allocation__c } from "./interfaces/frm_Allocation__c";
-import { frm_Grant__c } from "./interfaces/frm_Grant__c";
-import { RecordType } from "./interfaces/RecordType";
-import { isPlainObject } from "./utils";
+import { SfObjectConfig } from "./interfaces";
+import { isPlainObject, uniq } from "./utils";
 
 type SfPrimitiveType = string | number | boolean | bigint;
 type ChildTable<O> = { totalSize: number, done: boolean, records: O[] }
 type OnlyStrings<S> = S extends string ? S : never;
-
 type GetObjectTypes<OI> = { [K in keyof OI]: OI[K] }[keyof OI];
 
 // selection
 
-type SelectStm<OO, O, K> = { from: K, select: PropSelect<OO, O>[] } // select must point to further generic type, otherwise will give recursive error
+type ShortQueryStatement<OO, O extends OO, K> = { from: K, select: PropSelect<OO, O>[] }; // select must point to further generic type, otherwise will give recursive error
 
-type PropSelect<OO, O> = {
+type FullQueryStatement<OO, O extends OO, K> = ShortQueryStatement<OO, O, K> & { where?: WhereProps<OO, O> };
+
+type PropSelect<OO, O extends OO> = {
     [K in keyof O]:
     NonNullable<O[K]> extends SfPrimitiveType ? K :
-    NonNullable<O[K]> extends ChildTable<OO> ? SelectStm<OO, NonNullable<O[K]>['records'][0], K> :
-    NonNullable<O[K]> extends OO ? SelectStm<OO, NonNullable<O[K]>, K> :
+    NonNullable<O[K]> extends ChildTable<OO> ? ShortQueryStatement<OO, NonNullable<O[K]>['records'][0], K> :
+    NonNullable<O[K]> extends OO ? FullQueryStatement<OO, NonNullable<O[K]>, K> :
     never
 }[keyof O]
 
 
-type RootSelect<OI> = { [N in keyof OI]: { from: N, select: PropSelect<GetObjectTypes<OI>, OI[N]>[] } }[keyof OI];
+//type RootSelect<OI> = { [N in keyof OI]: { from: N, select: PropSelect<GetObjectTypes<OI>, OI[N]>[] } }[keyof OI];
+
+type RootQuery<OI> = { [N in keyof OI]: FullQueryStatement<GetObjectTypes<OI>, OI[N], N> }[keyof OI];// { from: N, select: PropSelect<GetObjectTypes<OI>, OI[N]>[] } }[keyof OI];
 
 
 // projection
@@ -46,9 +45,7 @@ type SelectProj<S, O, OO> = {
     )
 }
 
-type RootSelectProj<OI, Q extends RootSelect<OI>> = SelectProj<Q['select'][0], OI[Q['from']], GetObjectTypes<OI>>
-
-// where
+type RootSelectProj<OI, Q extends RootQuery<OI>> = SelectProj<Q['select'][0], OI[Q['from']], GetObjectTypes<OI>>
 
 // Where
 
@@ -132,12 +129,12 @@ type RootWhere<OI> = { [N in OnlyStrings<keyof OI>]: { from: N, where: WhereProp
 
 // Basic Client
 
-function escapeVal(cfg: SfObjectConfig, k: string, v: any): string {
+function escapeVal(cfg: SfObjectConfig | undefined, k: string, v: any): string {
 
 
     if (typeof v === 'string') {
 
-        if (cfg.dateTypes.includes(k) || cfg.dateTimeTypes.includes(k) || cfg.timeTypes.includes(k)) {
+        if (cfg?.dateTypes.includes(k) || cfg?.dateTimeTypes.includes(k) || cfg?.timeTypes.includes(k)) {
             return v;
         }
 
@@ -159,18 +156,20 @@ function escapeVal(cfg: SfObjectConfig, k: string, v: any): string {
 
 function getCfg(from: string, prefixes: string[], cfg: Record<string, SfObjectConfig>) {
 
-    if (prefixes.length) {
-        const [first, ...rest] = prefixes;
-        return getCfg(cfg[from].lookupTypes[first], rest, cfg)
-    }
+    if (from) {
+        if (prefixes.length) {
+            const [first, ...rest] = prefixes;
+            return getCfg(cfg[from].lookupTypes[first] || cfg[from].childTables[first], rest, cfg)
+        }
 
-    return cfg[from];
+        return cfg[from];
+    }
 }
 
 function processWhereStatement(
     from: string,
-    where: Record<string, any>,
     cfg: Record<string, SfObjectConfig>,
+    where: Record<string, any>,
     o?: { prefixes?: string[], isLogicalOr?: boolean, isLogicalNot?: boolean }
 ) {
 
@@ -184,7 +183,7 @@ function processWhereStatement(
             if (LOGICAL_OP_KEYS.includes(k as any)) {
 
                 if (isPlainObject(v)) {
-                    return processWhereStatement(from, v, cfg, { prefixes, isLogicalOr: (k === OP_KEY_OR), isLogicalNot: (k === OP_KEY_NOT) });
+                    return processWhereStatement(from, cfg, v, { prefixes, isLogicalOr: (k === OP_KEY_OR), isLogicalNot: (k === OP_KEY_NOT) });
                 }
             }
 
@@ -223,7 +222,7 @@ function processWhereStatement(
                     }
 
                     else if (op === undefined && value === undefined) {
-                        return processWhereStatement(from, rest, cfg, { prefixes: [...(prefixes || []), k] })
+                        return processWhereStatement(from, cfg, rest, { prefixes: [...(prefixes || []), k] })
                     }
 
                 }
@@ -259,7 +258,7 @@ function constructWhereStatement(from: string, cfg: Record<string, SfObjectConfi
             return where;
         }
 
-        const whereSt = processWhereStatement(from, where, cfg);
+        const whereSt = processWhereStatement(from, cfg, where);
 
         if (whereSt?.length) {
             return `where ${whereSt}`;
@@ -267,12 +266,56 @@ function constructWhereStatement(from: string, cfg: Record<string, SfObjectConfi
     }
 }
 
+function constructSelectStatement(from: string, cfg: Record<string, SfObjectConfig>, select: (string | {})[], prefixes: string[] = []): string {
+
+    return [
+        ...uniq(select.filter(st => (typeof st === 'string'))).map(st => [...prefixes, st].join('.')),
+        ...select
+            .filter(st => isPlainObject(st))
+
+            .map((rst) => {
+
+                const { from: key } = rst;
+
+                const oCfg = getCfg(from, prefixes || [], cfg);
+
+                if (oCfg?.childTables[key]) {
+                    const { select, where } = rst;
+                    return `(${constructFullQuery(key, cfg, select, where)})`;
+                }
+
+                if (isParentStatement(rst)) {
+                    const { fromLookup, select } = rst;
+                    return constructSelectStatement(select, [...prefixes, fromLookup])
+                }
+
+                // throw error???
+            })
+    ]
+        .filter(Boolean)
+        .join(', ');
+
+}
+
+function constructFullQuery(from: string, cfg: Record<string, SfObjectConfig>, select: (string | {})[], where?: string | Record<string, any>, limit?: number): string {
+
+    return [
+        'select',
+        constructSelectStatement(from, cfg, select),
+        'from',
+        from,
+        constructWhereStatement(from, cfg, where),
+        limit ? `limit ${limit}` : ''
+    ]
+        .filter(Boolean)
+        .join(' ');
+}
 
 export class BasicClient<OI extends {}> {
 
     constructor(private cfg: Record<string, SfObjectConfig>) { }
 
-    testFunc<Q extends RootSelect<OI>>(q: Q) {
+    testFunc<Q extends RootQuery<OI>>(q: Q) {
         return q as any as RootSelectProj<OI, Q>;
     }
 
