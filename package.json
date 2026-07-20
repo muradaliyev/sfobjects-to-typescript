@@ -11,8 +11,7 @@
     "url": "https://github.com/muradaliyev/sfobjects-to-typescript"
   },
   "scripts": {
-    "build": "npm run clean && tsc",
-    "validate": "npm run build && node ./dist/scripts/validate.js",
+    "build": "npm run clean && tsc",    
     "clean": "rimraf dist"
   },
   "author": "Murad Aliyev",
@@ -21,9 +20,7 @@
     "@types/node": "^25.9.4",
     "@types/yargs": "^17.0.35",
     "rimraf": "^6.1.2",
-    "typescript": "^5.9.3",
-    "dotenv": "^17.4.2",
-    "jsforce": "^3.10.19"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "yargs": "^18.0.0"
