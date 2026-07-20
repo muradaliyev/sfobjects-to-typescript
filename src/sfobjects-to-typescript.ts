@@ -89,5 +89,3 @@ export async function exctract(o: ExtractOptions) {
         console.log(`!!!Error: ${err}`);
     }
 }
-
-export * from './BasicClient';

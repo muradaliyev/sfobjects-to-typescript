@@ -88,12 +88,11 @@ export function generateIndex(describes: Record<string, DescribeSObjectResult>) 
 
 
     return [
-        `import { BasicClient, ISfConnection } from "../BasicClient";`,
-        ...Object.keys(describes).map(t => `import { ${t} } from "./${t}";`),
-        `\nexport type SfObjectConfig = { dateTypes: string[], dateTimeTypes: string[], timeTypes: string[], lookupTypes: Record<string,string>, childTables: Record<string,string> };`,
-        `\nconst OBJ_CONFIG: Record<string, SfObjectConfig> = {\n\n${constValues.join(',\n\n')}\n\n}`,
-        `\ntype SfObjects = {\n\n${Object.keys(describes).map((t) => `    ['${t}']: ${t}`).join(',\n\n')}\n\n}`,
-        `export const getBasicClient = (c: ISfConnection) => new BasicClient<SfObjects>(OBJ_CONFIG, c)`,
+        //`import { BasicClient, ISfConnection,SfObjectConfig } from "../BasicClient";`,
+        Object.keys(describes).map(t => `import { ${t} } from "./${t}";`).join('\n'),
+        `export const SFOBJECTS_CONFIG = {\n${constValues.join(',\n')}\n}`,
+        `export type SfObjectsIndex = {\n${Object.keys(describes).map((t) => `    ['${t}']: ${t}`).join(',\n')}\n}`,
+        //`export const getBasicClient = (c: ISfConnection) => new BasicClient<SfObjects>(OBJ_CONFIG, c)`,
         `export type { ${Object.keys(describes).join(', ')} };`,
-    ].join('\n')
+    ].join('\n\n')
 }

@@ -1,5 +1,6 @@
-import { SfObjectConfig } from "./interfaces";
 import { isPlainObject, uniq } from "./utils";
+
+export type SfObjectConfig = { dateTypes: string[], dateTimeTypes: string[], timeTypes: string[], lookupTypes: Record<string,string>, childTables: Record<string,string> };
 
 type SfPrimitiveType = string | number | boolean | bigint;
 type ChildTable<O> = { totalSize: number, done: boolean, records: O[] }
@@ -318,7 +319,7 @@ export interface ISfConnection {
     query: <R extends {}>(soql: string) => PromiseLike<{ records: R[] }>
 }
 
-export class BasicClient<OI> {
+export class SfBasicClient<OI> {
 
     constructor(private _cfg: Record<keyof OI, SfObjectConfig>, private _conn: ISfConnection) { }
 
