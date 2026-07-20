@@ -491,13 +491,3 @@ export class SfBasicClient<OI> {
     }
 
 }
-
-
-
-
-
-
-
-
-
-//OI extends SfObjectsIndex, N extends keyof OI
