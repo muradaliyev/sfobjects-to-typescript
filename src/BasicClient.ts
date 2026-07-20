@@ -1,6 +1,6 @@
 import { isPlainObject, uniq } from "./utils";
 
-export type SfObjectConfig = { dateTypes: string[], dateTimeTypes: string[], timeTypes: string[], lookupTypes: Record<string,string>, childTables: Record<string,string> };
+export type SfObjectConfig = { dateTypes: string[], dateTimeTypes: string[], timeTypes: string[], lookupTypes: Record<string, string>, childTables: Record<string, string> };
 
 type SfPrimitiveType = string | number | boolean | bigint;
 type ChildTable<O> = { totalSize: number, done: boolean, records: O[] }
@@ -16,8 +16,8 @@ type FullQueryStatement<OO, O extends OO, K> = ShortQueryStatement<OO, O, K> & {
 type PropSelect<OO, O extends OO> = {
     [K in keyof O]:
     NonNullable<O[K]> extends SfPrimitiveType ? K :
-    NonNullable<O[K]> extends ChildTable<OO> ? ShortQueryStatement<OO, NonNullable<O[K]>['records'][0], K> :
-    NonNullable<O[K]> extends OO ? FullQueryStatement<OO, NonNullable<O[K]>, K> :
+    NonNullable<O[K]> extends ChildTable<OO> ? FullQueryStatement<OO, NonNullable<O[K]>['records'][0], K> :
+    NonNullable<O[K]> extends OO ? ShortQueryStatement<OO, NonNullable<O[K]>, K> :
     never
 }[keyof O]
 
@@ -27,7 +27,7 @@ type PropSelect<OO, O extends OO> = {
 type RootShortQueryStatement<OI, N extends keyof OI, K = N> = ShortQueryStatement<GetObjectTypes<OI>, OI[N], K>;
 type RootFullQueryStatement<OI, N extends keyof OI, K = N> = FullQueryStatement<GetObjectTypes<OI>, OI[N], K>;
 
-export type RootQuery<OI> = { [N in OnlyStrings<keyof OI>]: RootFullQueryStatement<OI, N> }[OnlyStrings<keyof OI>];// { from: N, select: PropSelect<GetObjectTypes<OI>, OI[N]>[] } }[keyof OI];
+export type SfRootQuery<OI> = { [N in OnlyStrings<keyof OI>]: RootFullQueryStatement<OI, N> }[OnlyStrings<keyof OI>];// { from: N, select: PropSelect<GetObjectTypes<OI>, OI[N]>[] } }[keyof OI];
 
 
 // projection
@@ -36,12 +36,12 @@ type SelectProjKeys<S, O> = { [K in keyof O]: K extends S ? K : S extends { from
 
 type WrapNull<T> = T extends null ? null : never;
 
-type SelectProj<OO, O extends OO, S> = {
+type SfProjection<OO, O extends OO, S> = {
     [K in SelectProjKeys<S, O>]: WrapNull<O[K]> | (
         S extends K ? O[K] : (
             S extends { from: K, select: any[] } ? (
-                NonNullable<O[K]> extends OO ? SelectProj<OO, NonNullable<O[K]>, S['select'][0]> : (
-                    NonNullable<O[K]> extends ChildTable<OO> ? ChildTable<SelectProj<OO, NonNullable<O[K]>['records'][0], S['select'][0]>> :
+                NonNullable<O[K]> extends OO ? SfProjection<OO, NonNullable<O[K]>, S['select'][0]> : (
+                    NonNullable<O[K]> extends ChildTable<OO> ? ChildTable<SfProjection<OO, NonNullable<O[K]>['records'][0], S['select'][0]>> :
                     never
                 )
             ) : never
@@ -49,7 +49,7 @@ type SelectProj<OO, O extends OO, S> = {
     )
 }
 
-export type RootSelectProj<OI, Q extends RootQuery<OI>> = SelectProj<GetObjectTypes<OI>, OI[Q['from']], Q['select'][0]>
+export type SfRootQueryProjection<OI, Q extends SfRootQuery<OI>> = SfProjection<GetObjectTypes<OI>, OI[Q['from']], Q['select'][0]>
 
 // Where
 
@@ -117,8 +117,10 @@ const OP_RULES: SfOpRule[] = [
 
 interface SfWhereOp<OP extends SfValueOpKeys, V> { op: OP; value: V; }
 
+type WherePropKeys<OO, O extends OO> = { [K in keyof O]: NonNullable<O[K]> extends SfPrimitiveType ? K : NonNullable<O[K]> extends OO ? K : never }[keyof O];
+
 type WhereProps<OO, O extends OO> = {
-    [K in keyof O]+?: (
+    [K in WherePropKeys<OO, O>]+?: (
         NonNullable<O[K]> extends SfPrimitiveType ? (
             O[K] | O[K][] | { [OPK in SfSingularOpKeys]: SfWhereOp<OPK, O[K]> }[SfSingularOpKeys] | { [OPK in SfPluralOpKeys]: SfWhereOp<OPK, O[K][]> }[SfPluralOpKeys]
         ) : (
@@ -127,8 +129,6 @@ type WhereProps<OO, O extends OO> = {
     )
 } | { [K in SfLogicalOpKeys]+?: WhereProps<OO, O> } | WhereProps<OO, O>[];
 
-
-//type RootWhere<OI> = { [N in OnlyStrings<keyof OI>]: { from: N, where: WhereProps<GetObjectTypes<OI>, OI[N]> } }[OnlyStrings<keyof OI>];
 
 
 // Basic Client
@@ -158,24 +158,81 @@ function escapeVal(cfg: SfObjectConfig | undefined, k: string, v: any): string {
 
 }
 
-function getCfg(from: string, prefixes: string[], cfg: Record<string, SfObjectConfig>) {
+// function getCfg(from: string, prefixes: string[], cfg: Record<string, SfObjectConfig>) {
 
-    if (from) {
-        if (prefixes.length) {
-            const [first, ...rest] = prefixes;
-            return getCfg(cfg[from].lookupTypes[first] || cfg[from].childTables[first], rest, cfg)
-        }
+//     if (from) {
+//         if (prefixes.length) {
+//             const [first, ...rest] = prefixes;
+//             return getCfg(cfg[from].lookupTypes[first] || cfg[from].childTables[first], rest, cfg)
+//         }
 
-        return cfg[from];
-    }
+//         return cfg[from];
+//     }
+// }
+
+
+
+type SimpleFullQuery = { from: string; select: (string | {})[]; where?: string | Record<string, any>; limit?: number }
+
+function constructFullQuery2(objName: string, cfg: Record<string, SfObjectConfig>, q: SimpleFullQuery): string {
+
+    const { from, select, where, limit } = q;
+
+    return [
+        'select',
+        constructSelectStatement2(objName, cfg, select),
+        'from',
+        from,
+        where && `where ${constructWhereStatement2(objName, cfg, where)}`,
+        limit ? `limit ${limit}` : ''
+    ]
+        .filter(Boolean)
+        .join(' ');
 }
 
-function processWhereStatement(
-    from: string,
+function constructSelectStatement2(objName: string, cfg: Record<string, SfObjectConfig>, select: (string | {})[], prefixes: string[] = []): string {
+
+    return select
+        .map((rst) => {
+
+            if (typeof rst === 'string') {
+                return [...prefixes, rst].join('.')
+            }
+
+            if (isPlainObject(rst)) {
+
+                const { from } = rst;
+                const oCfg = cfg[objName];
+
+                if (oCfg) {
+
+                    if (oCfg.childTables[from]) {
+                        return `( ${constructFullQuery2(oCfg.childTables[from], cfg, rst as SimpleFullQuery)} )`;
+                    }
+
+                    if (oCfg.lookupTypes[from]) {
+                        return constructSelectStatement2(oCfg.lookupTypes[from], cfg, rst['select'], [...prefixes, from])
+                    }
+                }
+            }
+        })
+
+        .filter(Boolean)
+        .join(', ');
+
+}
+
+
+function constructWhereStatement2(
+    objName: string,
     cfg: Record<string, SfObjectConfig>,
-    where: Record<string, any>,
+    where: string | Record<string, any>,
     o?: { prefixes?: string[], isLogicalOr?: boolean, isLogicalNot?: boolean }
 ) {
+
+    if (typeof where === 'string') {
+        return where;
+    }
 
     const { prefixes, isLogicalNot, isLogicalOr } = o || {};
 
@@ -187,7 +244,7 @@ function processWhereStatement(
             if (LOGICAL_OP_KEYS.includes(k as any)) {
 
                 if (isPlainObject(v)) {
-                    return processWhereStatement(from, cfg, v, { prefixes, isLogicalOr: (k === OP_KEY_OR), isLogicalNot: (k === OP_KEY_NOT) });
+                    return constructWhereStatement2(objName, cfg, v, { prefixes, isLogicalOr: (k === OP_KEY_OR), isLogicalNot: (k === OP_KEY_NOT) });
                 }
             }
 
@@ -195,46 +252,53 @@ function processWhereStatement(
 
                 const keyWithPrefix = [...(prefixes || []), k].join('.');
 
-                const oCfg = getCfg(from, prefixes || [], cfg);
+                const oCfg = cfg[objName];  //getCfg(objName, prefixes || [], cfg);
 
+                if (oCfg) {
 
-                if (isPlainObject(v)) {
+                    if (isPlainObject(v)) {
 
-                    const { op, value, ...rest } = v;
+                        const { op, value, ...objMaps } = v;
 
-                    if (op !== undefined && value !== undefined) {
+                        if (op !== undefined && value !== undefined) {
 
-                        const opRule = OP_RULES.find(r => r.ops.some(rop => (rop === op)));
+                            const opRule = OP_RULES.find(r => r.ops.some(rop => (rop === op)));
 
-                        if (opRule) {
+                            if (opRule) {
 
-                            const { soqlOp, isNot, isPlural } = opRule;
+                                const { soqlOp, isNot, isPlural } = opRule;
 
-                            if ((isPlural ?? false) === Array.isArray(value)) {
+                                if ((isPlural ?? false) === Array.isArray(value)) {
 
-                                return [
-                                    isNot ? 'not (' : '',
-                                    keyWithPrefix,
-                                    soqlOp,
-                                    Array.isArray(value) ? `(${value.map(v => escapeVal(oCfg, k, v)).join(',')})` : escapeVal(oCfg, k, value),
-                                    isNot ? ')' : '',
-                                ]
-                                    .filter(Boolean)
-                                    .join(' ');
+                                    return [
+                                        isNot ? 'not (' : '',
+                                        keyWithPrefix,
+                                        soqlOp,
+                                        Array.isArray(value) ? `( ${value.map(v => escapeVal(oCfg, k, v)).join(',')} )` : escapeVal(oCfg, k, value),
+                                        isNot ? ')' : '',
+                                    ]
+                                        .filter(Boolean)
+                                        .join(' ');
+                                }
                             }
                         }
-                    }
 
-                    else if (op === undefined && value === undefined) {
-                        return processWhereStatement(from, cfg, rest, { prefixes: [...(prefixes || []), k] })
-                    }
+                        else if (op === undefined && value === undefined && Object.keys(objMaps).length) {
 
-                }
-                else if (Array.isArray(v)) {
-                    return `${keyWithPrefix} in (${v.map(vj => escapeVal(oCfg, k, vj)).join(', ')})`;
-                }
-                else {
-                    return `${keyWithPrefix} = ${escapeVal(oCfg, k, v)}`;
+                            const childObjName = oCfg.lookupTypes[k];
+
+                            if (childObjName) {
+                                return constructWhereStatement2(childObjName, cfg, objMaps, { prefixes: [...(prefixes || []), k] })
+                            }
+                        }
+
+                    }
+                    else if (Array.isArray(v)) {
+                        return `${keyWithPrefix} in (${v.map(vj => escapeVal(oCfg, k, vj)).join(', ')})`;
+                    }
+                    else {
+                        return `${keyWithPrefix} = ${escapeVal(oCfg, k, v)}`;
+                    }
                 }
             }
         })
@@ -243,7 +307,7 @@ function processWhereStatement(
 
     if (whereStatements.length) {
 
-        const joinedStatements = `(${whereStatements.join(isLogicalOr ? ') or (' : ') and (')})`;
+        const joinedStatements = whereStatements.length === 1 ? whereStatements[0] : `( ${whereStatements.join(isLogicalOr ? ' ) or ( ' : ' ) and ( ' )})`;
 
         if (isLogicalNot) {
             return whereStatements.length > 1 ? `not (${joinedStatements})` : `not ${joinedStatements}`;
@@ -253,67 +317,154 @@ function processWhereStatement(
     }
 }
 
+// ============
 
-function constructWhereStatement(from: string, cfg: Record<string, SfObjectConfig>, where?: string | Record<string, any>) {
+// function constructSelectStatement(objName: string, cfg: Record<string, SfObjectConfig>, select: (string | {})[], prefixes: string[] = []): string {
 
-    if (where) {
+//     return [
+//         ...uniq(select.filter(st => (typeof st === 'string'))).map(st => [...prefixes, st].join('.')),
+//         ...select
+//             .filter(st => isPlainObject(st))
 
-        if (typeof where === 'string') {
-            return where;
-        }
+//             .map((rst) => {
 
-        const whereSt = processWhereStatement(from, cfg, where);
+//                 const { from: key } = rst;
 
-        if (whereSt?.length) {
-            return `where ${whereSt}`;
-        }
-    }
-}
+//                 const oCfg = getCfg(objName, prefixes || [], cfg);
 
-function constructSelectStatement(from: string, cfg: Record<string, SfObjectConfig>, select: (string | {})[], prefixes: string[] = []): string {
+//                 if (oCfg?.childTables[key]) {
+//                     const { select, where } = rst;
+//                     return `(${constructFullQuery(key, cfg, select, where)})`;
+//                 }
 
-    return [
-        ...uniq(select.filter(st => (typeof st === 'string'))).map(st => [...prefixes, st].join('.')),
-        ...select
-            .filter(st => isPlainObject(st))
+//                 if (oCfg?.lookupTypes[key]) {
+//                     const { select } = rst;
+//                     return constructSelectStatement(objName, cfg, select, [...prefixes, key])
+//                 }
 
-            .map((rst) => {
+//                 // throw error???
+//             })
+//     ]
+//         .filter(Boolean)
+//         .join(', ');
 
-                const { from: key } = rst;
+// }
 
-                const oCfg = getCfg(from, prefixes || [], cfg);
 
-                if (oCfg?.childTables[key]) {
-                    const { select, where } = rst;
-                    return `(${constructFullQuery(key, cfg, select, where)})`;
-                }
 
-                if (oCfg?.lookupTypes[key]) {
-                    const { select } = rst;
-                    return constructSelectStatement(from, cfg, select, [...prefixes, key])
-                }
+// function constructFullQuery(from: string, cfg: Record<string, SfObjectConfig>, select: (string | {})[], where?: string | Record<string, any>, limit?: number): string {
 
-                // throw error???
-            })
-    ]
-        .filter(Boolean)
-        .join(', ');
+//     return [
+//         'select',
+//         constructSelectStatement(from, cfg, select),
+//         'from',
+//         from,
+//         constructWhereStatement(from, cfg, where),
+//         limit ? `limit ${limit}` : ''
+//     ]
+//         .filter(Boolean)
+//         .join(' ');
+// }
 
-}
+// function processWhereStatement(
+//     from: string,
+//     cfg: Record<string, SfObjectConfig>,
+//     where: Record<string, any>,
+//     o?: { prefixes?: string[], isLogicalOr?: boolean, isLogicalNot?: boolean }
+// ) {
 
-function constructFullQuery(from: string, cfg: Record<string, SfObjectConfig>, select: (string | {})[], where?: string | Record<string, any>, limit?: number): string {
+//     const { prefixes, isLogicalNot, isLogicalOr } = o || {};
 
-    return [
-        'select',
-        constructSelectStatement(from, cfg, select),
-        'from',
-        from,
-        constructWhereStatement(from, cfg, where),
-        limit ? `limit ${limit}` : ''
-    ]
-        .filter(Boolean)
-        .join(' ');
-}
+//     const whereStatements = Object.keys(where)
+//         .map((k): (string | undefined) => {
+
+//             const v = where[k];
+
+//             if (LOGICAL_OP_KEYS.includes(k as any)) {
+
+//                 if (isPlainObject(v)) {
+//                     return processWhereStatement(from, cfg, v, { prefixes, isLogicalOr: (k === OP_KEY_OR), isLogicalNot: (k === OP_KEY_NOT) });
+//                 }
+//             }
+
+//             else {
+
+//                 const keyWithPrefix = [...(prefixes || []), k].join('.');
+
+//                 const oCfg = getCfg(from, prefixes || [], cfg);
+
+
+//                 if (isPlainObject(v)) {
+
+//                     const { op, value, ...rest } = v;
+
+//                     if (op !== undefined && value !== undefined) {
+
+//                         const opRule = OP_RULES.find(r => r.ops.some(rop => (rop === op)));
+
+//                         if (opRule) {
+
+//                             const { soqlOp, isNot, isPlural } = opRule;
+
+//                             if ((isPlural ?? false) === Array.isArray(value)) {
+
+//                                 return [
+//                                     isNot ? 'not (' : '',
+//                                     keyWithPrefix,
+//                                     soqlOp,
+//                                     Array.isArray(value) ? `(${value.map(v => escapeVal(oCfg, k, v)).join(',')})` : escapeVal(oCfg, k, value),
+//                                     isNot ? ')' : '',
+//                                 ]
+//                                     .filter(Boolean)
+//                                     .join(' ');
+//                             }
+//                         }
+//                     }
+
+//                     else if (op === undefined && value === undefined) {
+//                         return processWhereStatement(from, cfg, rest, { prefixes: [...(prefixes || []), k] })
+//                     }
+
+//                 }
+//                 else if (Array.isArray(v)) {
+//                     return `${keyWithPrefix} in (${v.map(vj => escapeVal(oCfg, k, vj)).join(', ')})`;
+//                 }
+//                 else {
+//                     return `${keyWithPrefix} = ${escapeVal(oCfg, k, v)}`;
+//                 }
+//             }
+//         })
+//         .filter(Boolean);
+
+
+//     if (whereStatements.length) {
+
+//         const joinedStatements = `(${whereStatements.join(isLogicalOr ? ') or (' : ') and (')})`;
+
+//         if (isLogicalNot) {
+//             return whereStatements.length > 1 ? `not (${joinedStatements})` : `not ${joinedStatements}`;
+//         }
+
+//         return joinedStatements;
+//     }
+// }
+
+
+// function constructWhereStatement(from: string, cfg: Record<string, SfObjectConfig>, where?: string | Record<string, any>) {
+
+//     if (where) {
+
+//         if (typeof where === 'string') {
+//             return where;
+//         }
+
+//         const whereSt = processWhereStatement(from, cfg, where);
+
+//         if (whereSt?.length) {
+//             return `where ${whereSt}`;
+//         }
+//     }
+// }
 
 export interface ISfConnection {
     query: <R extends {}>(soql: string) => PromiseLike<{ records: R[] }>
@@ -323,16 +474,15 @@ export class SfBasicClient<OI> {
 
     constructor(private _cfg: Record<keyof OI, SfObjectConfig>, private _conn: ISfConnection) { }
 
-    exec<Q extends RootQuery<OI>>(query: Q) {
-        return this._conn.query<RootSelectProj<OI, Q>>(this.soql(query));
+    exec<Q extends SfRootQuery<OI>>(query: Q) {
+        return this._conn.query<SfRootQueryProjection<OI, Q>>(this.soql(query));
     }
 
-    soql<Q extends RootQuery<OI>>(query: Q) {
-        const { select, from, where, limit } = query;
-        return constructFullQuery(from, this._cfg, select, where, limit);
+    soql<Q extends SfRootQuery<OI>>(q: Q) {
+        return constructFullQuery2(q.from, this._cfg, q);
     }
 
-    query<Q extends RootQuery<OI>>(query: Q) {
+    query<Q extends SfRootQuery<OI>>(query: Q) {
 
         return ({
             exec: () => this.exec(query),
