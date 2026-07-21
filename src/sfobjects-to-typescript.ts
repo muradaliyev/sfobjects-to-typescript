@@ -33,6 +33,23 @@ export async function exctract(o: ExtractOptions) {
         // if (!otherTypeNames.some(t => (t === 'RecordType'))) {
         //     otherTypeNames.push('RecordType');
         // }
+        const recTypeDevNames: Record<string, Record<string, string>> = {};
+
+        const instance = sf.auth.instance_url;
+
+        async function _store(name: string, body: string) {
+            if (o.output) {
+
+                const fName = [o.output, `${name}.ts`].filter(Boolean).join('/');
+
+                console.log(`Saving '${fName}'...`);
+
+                await fs.promises.writeFile(fName, body);
+            }
+            else {
+                console.log(body);
+            }
+        }
 
         for (var objectName in typesIndex) {
 
@@ -48,40 +65,21 @@ export async function exctract(o: ExtractOptions) {
 
             console.log(`Generatting type ${objectName}...`);
 
-            const recTypeDevNames: Record<string, string> = {};
+            recTypeDevNames[objectName] = {};
+
 
             for (var ri of describe.recordTypeInfos) {
 
-                recTypeDevNames[ri.recordTypeId] = ri.master ? 'Master' : (await sf.getRecordTypeById(ri.recordTypeId)).DeveloperName;
+                recTypeDevNames[objectName][ri.recordTypeId] = ri.master ? 'Master' : (await sf.getRecordTypeById(ri.recordTypeId)).DeveloperName;
             }
 
-            const body = extractTypes({ describe, otherTypeNames: Object.keys(typesIndex), recTypeDevNames, instance: sf.auth.instance_url });
-
-            if (o.output) {
-                await fs.promises.writeFile(
-                    [o.output, `${describe.name}.ts`].filter(Boolean).join('/'),
-                    body
-                );
-            }
-            else {
-                console.log(body);
-            }
+            await _store(describe.name, extractTypes({ describe, otherTypeNames: Object.keys(typesIndex), recTypeDevNames: recTypeDevNames[objectName], instance }));
 
         }
 
         console.log(`Generating index...`);
 
-        const idx = generateIndex(typesIndex);
-
-        if (o.output) {
-            await fs.promises.writeFile(
-                [o.output, `index.ts`].filter(Boolean).join('/'),
-                idx
-            );
-        }
-        else {
-            console.log(idx);
-        }
+        await _store('index', generateIndex(typesIndex, recTypeDevNames, instance));
 
         console.log('Done!');
     }

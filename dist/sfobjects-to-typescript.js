@@ -63,6 +63,20 @@ function exctract(o) {
             // if (!otherTypeNames.some(t => (t === 'RecordType'))) {
             //     otherTypeNames.push('RecordType');
             // }
+            const recTypeDevNames = {};
+            const instance = sf.auth.instance_url;
+            function _store(name, body) {
+                return __awaiter(this, void 0, void 0, function* () {
+                    if (o.output) {
+                        const fName = [o.output, `${name}.ts`].filter(Boolean).join('/');
+                        console.log(`Saving '${fName}'...`);
+                        yield fs.promises.writeFile(fName, body);
+                    }
+                    else {
+                        console.log(body);
+                    }
+                });
+            }
             for (var objectName in typesIndex) {
                 // console.log(`Fetching metadata for object ${objectName}...`);
                 // const describe = await sf.describeObject(objectName);
@@ -71,26 +85,14 @@ function exctract(o) {
                     throw `Unable to describe ${objectName}`;
                 }
                 console.log(`Generatting type ${objectName}...`);
-                const recTypeDevNames = {};
+                recTypeDevNames[objectName] = {};
                 for (var ri of describe.recordTypeInfos) {
-                    recTypeDevNames[ri.recordTypeId] = ri.master ? 'Master' : (yield sf.getRecordTypeById(ri.recordTypeId)).DeveloperName;
+                    recTypeDevNames[objectName][ri.recordTypeId] = ri.master ? 'Master' : (yield sf.getRecordTypeById(ri.recordTypeId)).DeveloperName;
                 }
-                const body = (0, extractTypes_1.extractTypes)({ describe, otherTypeNames: Object.keys(typesIndex), recTypeDevNames, instance: sf.auth.instance_url });
-                if (o.output) {
-                    yield fs.promises.writeFile([o.output, `${describe.name}.ts`].filter(Boolean).join('/'), body);
-                }
-                else {
-                    console.log(body);
-                }
+                yield _store(describe.name, (0, extractTypes_1.extractTypes)({ describe, otherTypeNames: Object.keys(typesIndex), recTypeDevNames: recTypeDevNames[objectName], instance }));
             }
             console.log(`Generating index...`);
-            const idx = (0, generateIndex_1.generateIndex)(typesIndex);
-            if (o.output) {
-                yield fs.promises.writeFile([o.output, `index.ts`].filter(Boolean).join('/'), idx);
-            }
-            else {
-                console.log(idx);
-            }
+            yield _store('index', (0, generateIndex_1.generateIndex)(typesIndex, recTypeDevNames, instance));
             console.log('Done!');
         }
         catch (err) {
