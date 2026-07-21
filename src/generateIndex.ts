@@ -81,11 +81,22 @@ export function generateIndex(describes: Record<string, DescribeSObjectResult>) 
             return `{${Object.keys(kv).filter(k => !!kv[k]).map(k => `\n            '${k}': '${kv[k]}'`).join(', ')}\n        }`;
         }
 
-        return `    '${t}': {\n        dateTypes: ${getTypeKeys('date')},\n        dateTimeTypes: ${getTypeKeys('datetime')},\n        timeTypes: ${getTypeKeys('time')},\n        lookupTypes: ${getLookupTypes()},\n        childTables: ${getChildTableTypes()}\n    }`;
+        const _o: Record<string, string> = {
+            objectPrefix: describes[t].keyPrefix || '',
+            dateTypes: getTypeKeys('date'),
+            dateTimeTypes: getTypeKeys('datetime'),
+            timeTypes: getTypeKeys('time'),
+            lookupTypes: getLookupTypes(),
+            childTables: getChildTableTypes()
+        }
+
+        return `    ${Object.keys(_o).map(k => `\n        ${k}:${_o[k]}`).join(',')}\n    }`;
+
+        //return `    '${t}': {\n        dateTypes: ${getTypeKeys('date')},\n        dateTimeTypes: ${getTypeKeys('datetime')},\n        timeTypes: ${getTypeKeys('time')},\n        lookupTypes: ${getLookupTypes()},\n        childTables: ${getChildTableTypes()}\n    }`;
     })
 
 
-
+    //`export const object_prefix_${describe.name} = '${describe.keyPrefix}';`,
 
     return [
         //`import { BasicClient, ISfConnection,SfObjectConfig } from "../BasicClient";`,
