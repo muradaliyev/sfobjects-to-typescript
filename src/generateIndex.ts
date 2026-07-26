@@ -87,7 +87,7 @@ export function generateIndex(describes: Record<string, DescribeSObjectResult>, 
             }
 
             const _o: Record<string, string> = {
-                objectPrefix: ` '${describes[t].keyPrefix}'` || '',
+                objectPrefix: ` '${describes[t].keyPrefix || ''}'`,
                 dateTypes: getTypeKeys('date'),
                 dateTimeTypes: getTypeKeys('datetime'),
                 timeTypes: getTypeKeys('time'),

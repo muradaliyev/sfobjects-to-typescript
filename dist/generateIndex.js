@@ -56,7 +56,7 @@ function generateIndex(describes, recTypeDevNames, instance) {
             return `{${describes[t].recordTypeInfos.filter(i => !!recTypeDevNames[t][i.recordTypeId]).map(i => `\n            '${recTypeDevNames[t][i.recordTypeId]}': '${i.recordTypeId}'`).join(',')}\n        }`;
         }
         const _o = {
-            objectPrefix: ` '${describes[t].keyPrefix}'` || '',
+            objectPrefix: ` '${describes[t].keyPrefix || ''}'`,
             dateTypes: getTypeKeys('date'),
             dateTimeTypes: getTypeKeys('datetime'),
             timeTypes: getTypeKeys('time'),
