@@ -2,38 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateIndex = generateIndex;
 const utils_1 = require("./utils");
-// export function generateIndexOld(describes: Record<string, DescribeSObjectResult>) {
-//     const dateTypes: Record<string, string | undefined> = {};
-//     const dateTimeTypes: Record<string, string | undefined> = {};
-//     const timeTypes: Record<string, string | undefined> = {};
-//     const objectValues = Object.keys(describes).map((t) => {
-//         const d = describes[t];
-//         dateTypes[t] = d.fields.some(f => f.type === 'date') ? `Date_Types_${t}` : undefined;
-//         dateTimeTypes[t] = d.fields.some(f => f.type === 'datetime') ? `Date_Time_Types_${t}` : undefined;
-//         timeTypes[t] = d.fields.some(f => f.type === 'time') ? `Time_Types_${t}` : undefined;
-//         return `    ['${t}']: {\n        ObjectType: ${t};\n        DateTypes: ${dateTypes[t] ?? 'never'};\n        DateTimeTypes: ${dateTimeTypes[t] ?? 'never'};\n        TimeTypes: ${timeTypes[t] ?? 'never'};\n    }`;
-//     })
-//     const typesImport = Object.keys(describes).map(t => `import { ${[t, dateTypes[t], dateTimeTypes[t], timeTypes[t]].filter(Boolean).join(', ')} } from "./${t}";`);
-//     return [
-//         ...typesImport,
-//         `\nexport type Objects_Index = {\n\n${objectValues.join(',\n\n')}\n\n}`
-//     ].join('\n')
-// }
-// export function generateIndexNold(describes: Record<string, DescribeSObjectResult>) {
-//     const objectValues = Object.keys(describes).map((t) => {
-//         function getTypeKeys(ft: FieldType) {
-//             const keys = describes[t].fields.filter(f => f.type === ft).map(f => f.name)
-//             return keys.length ? `'${keys.join(`' | '`)}'` : 'never';
-//         }
-//         return `    ['${t}']: {\n        ObjectType: ${t};\n        DateTypes: ${getTypeKeys('date')};\n        DateTimeTypes: ${getTypeKeys('datetime')};\n        TimeTypes: ${getTypeKeys('time')};\n    }`;
-//     })
-//     const typesImport = Object.keys(describes).map(t => `import { ${t} } from "./${t}";`);
-//     return [
-//         ...typesImport,
-//         `\nexport type SfObjects = {\n\n${objectValues.join(',\n\n')}\n\n}`
-//     ].join('\n')
-// }
-function generateIndex(describes, recTypeDevNames, instance) {
+function generateIndex(describes, recTypeDevNames, instance, client) {
     const constValues = Object.keys(describes)
         .map((t) => {
         function getTypeKeys(ft) {
@@ -68,12 +37,12 @@ function generateIndex(describes, recTypeDevNames, instance) {
     });
     //`export const object_prefix_${describe.name} = '${describe.keyPrefix}';`,
     return [
-        //`import { BasicClient, ISfConnection,SfObjectConfig } from "../BasicClient";`,
+        client ? `import { getSfObjects } from "sfobjects-basic-client";` : '',
         Object.keys(describes).map(t => `import { ${t} } from "./${t}";`).join('\n'),
         `export const SFOBJECTS_INSTANCE = '${instance}';`,
         `export const SFOBJECTS_CONFIG = {\n${constValues.join(',\n')}\n}`,
         `export type SfObjectsIndex = {\n${Object.keys(describes).map((t) => `    ['${t}']: ${t}`).join(',\n')}\n}`,
-        //`export const getBasicClient = (c: ISfConnection) => new BasicClient<SfObjects>(OBJ_CONFIG, c)`,
         `export type { ${Object.keys(describes).join(', ')} };`,
+        client ? `export const getSfClient = getSfObjects<SfObjectsIndex>(SFOBJECTS_CONFIG)` : '',
     ].join('\n\n');
 }
