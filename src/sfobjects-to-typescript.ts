@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import { extractTypes } from "./extractTypes";
 import { SfConnector, SfConnectorOptions } from './SfConnector';
 import { DescribeSObjectResult } from './DescribeResult';
-import { generateIndex } from './generateIndex';
+import { generateIndex, generateSimpleIndex } from './generateIndex';
 
 export interface ExtractOptions extends SfConnectorOptions {
     objects: string[];
@@ -31,9 +31,7 @@ export async function exctract(o: ExtractOptions) {
         })))
             .reduce((p, v) => ({ ...p, [v.k]: v.d }), {} as Record<string, DescribeSObjectResult>)
 
-        // if (!otherTypeNames.some(t => (t === 'RecordType'))) {
-        //     otherTypeNames.push('RecordType');
-        // }
+
         const recTypeDevNames: Record<string, Record<string, string>> = {};
 
         const instance = sf.auth.instance_url;
@@ -53,10 +51,6 @@ export async function exctract(o: ExtractOptions) {
         }
 
         for (var objectName in typesIndex) {
-
-            // console.log(`Fetching metadata for object ${objectName}...`);
-
-            // const describe = await sf.describeObject(objectName);
 
             const describe = typesIndex[objectName];
 
@@ -78,9 +72,9 @@ export async function exctract(o: ExtractOptions) {
 
         }
 
-        console.log(`Generating index${o.client ? ' with client' : ''}...`);
+        console.log(`Generating index...`);
 
-        await _store('index', generateIndex(typesIndex, recTypeDevNames, instance, o.client));
+        await _store('index', o.client ? generateIndex(typesIndex, recTypeDevNames, instance) : generateSimpleIndex(typesIndex, instance));
 
         console.log('Done!');
     }

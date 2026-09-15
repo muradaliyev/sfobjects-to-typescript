@@ -1,8 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.generateSimpleIndex = generateSimpleIndex;
 exports.generateIndex = generateIndex;
 const utils_1 = require("./utils");
-function generateIndex(describes, recTypeDevNames, instance, client) {
+function generateSimpleIndex(describes) {
+    return [
+        Object.keys(describes).map(t => `import { ${t} } from "./${t}";`).join('\n'),
+        `export type { ${Object.keys(describes).join(', ')} };`
+    ].join('\n\n');
+}
+function generateIndex(describes, recTypeDevNames, instance) {
     const constValues = Object.keys(describes)
         .map((t) => {
         function getTypeKeys(ft) {
@@ -25,7 +32,7 @@ function generateIndex(describes, recTypeDevNames, instance, client) {
             return `{${describes[t].recordTypeInfos.filter(i => !!recTypeDevNames[t][i.recordTypeId]).map(i => `\n            '${recTypeDevNames[t][i.recordTypeId]}': '${i.recordTypeId}'`).join(',')}\n        }`;
         }
         const _o = {
-            objectPrefix: ` '${describes[t].keyPrefix || ''}'`,
+            objectPrefix: `'${describes[t].keyPrefix || ''}'`,
             dateTypes: getTypeKeys('date'),
             dateTimeTypes: getTypeKeys('datetime'),
             timeTypes: getTypeKeys('time'),
@@ -33,16 +40,18 @@ function generateIndex(describes, recTypeDevNames, instance, client) {
             childTables: getChildTableTypes(),
             recordTypes: getRecordTypes()
         };
-        return `\n    '${t}': {${Object.keys(_o).map(k => `\n        ${k}:${_o[k]}`).join(',')}\n    }`;
+        return `\n    '${t}': {${Object.keys(_o).map(k => `\n        ${k}: ${_o[k]}`).join(',')}\n    }`;
     });
-    //`export const object_prefix_${describe.name} = '${describe.keyPrefix}';`,
     return [
-        client ? `import { getSfObjects } from "sfobjects-basic-client";` : '',
+        'import { getSfObject, getSfObjects, ISfConnection, SfObjActions } from "sfobjects-basic-client";',
         Object.keys(describes).map(t => `import { ${t} } from "./${t}";`).join('\n'),
         `export const SFOBJECTS_INSTANCE = '${instance}';`,
         `export const SFOBJECTS_CONFIG = {\n${constValues.join(',\n')}\n}`,
-        `export type SfObjectsIndex = {\n${Object.keys(describes).map((t) => `    ['${t}']: ${t}`).join(',\n')}\n}`,
+        `export type SfObjectsIndex = {\n${Object.keys(describes).map((t) => `    ['${t}']: ${t}`).join(',\n')}\n};`,
         `export type { ${Object.keys(describes).join(', ')} };`,
-        client ? `export const getSfClient = getSfObjects<SfObjectsIndex>(SFOBJECTS_CONFIG)` : '',
+        'export type SfClientObject<N extends keyof SfObjectsIndex> = SfObjActions<SfObjectsIndex, N>;',
+        'export type SfClientObjectsIndex = { [N in keyof SfObjectsIndex]: SfClientObject<N> };',
+        'export const getSfClientObject = <N extends keyof SfObjectsIndex>(n: N, conn: ISfConnection): SfClientObject<N> => getSfObject<SfObjectsIndex>(SFOBJECTS_CONFIG)(n, conn);',
+        'export const getSfClientObjects = (conn: ISfConnection): SfClientObjectsIndex => getSfObjects<SfObjectsIndex>(SFOBJECTS_CONFIG)(conn);'
     ].join('\n\n');
 }
