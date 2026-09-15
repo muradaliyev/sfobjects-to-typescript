@@ -60,9 +60,6 @@ function exctract(o) {
                 return { k, d: yield sf.describeObject(k) };
             }))))
                 .reduce((p, v) => (Object.assign(Object.assign({}, p), { [v.k]: v.d })), {});
-            // if (!otherTypeNames.some(t => (t === 'RecordType'))) {
-            //     otherTypeNames.push('RecordType');
-            // }
             const recTypeDevNames = {};
             const instance = sf.auth.instance_url;
             function _store(name, body) {
@@ -78,8 +75,6 @@ function exctract(o) {
                 });
             }
             for (var objectName in typesIndex) {
-                // console.log(`Fetching metadata for object ${objectName}...`);
-                // const describe = await sf.describeObject(objectName);
                 const describe = typesIndex[objectName];
                 if (!describe) {
                     throw `Unable to describe ${objectName}`;
@@ -92,7 +87,7 @@ function exctract(o) {
                 yield _store(describe.name, (0, extractTypes_1.extractTypes)({ describe, otherTypeNames: Object.keys(typesIndex), recTypeDevNames: recTypeDevNames[objectName], instance }));
             }
             console.log(`Generating index...`);
-            yield _store('index', o.client ? (0, generateIndex_1.generateIndex)(typesIndex, recTypeDevNames, instance) : (0, generateIndex_1.generateSimpleIndex)(typesIndex));
+            yield _store('index', o.client ? (0, generateIndex_1.generateIndex)(typesIndex, recTypeDevNames, instance) : (0, generateIndex_1.generateSimpleIndex)(typesIndex, instance));
             console.log('Done!');
         }
         catch (err) {

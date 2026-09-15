@@ -3,9 +3,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateSimpleIndex = generateSimpleIndex;
 exports.generateIndex = generateIndex;
 const utils_1 = require("./utils");
-function generateSimpleIndex(describes) {
+function generateSimpleIndex(describes, instance) {
     return [
         Object.keys(describes).map(t => `import { ${t} } from "./${t}";`).join('\n'),
+        `export const SFOBJECTS_INSTANCE = '${instance}';`,
         `export type { ${Object.keys(describes).join(', ')} };`
     ].join('\n\n');
 }
