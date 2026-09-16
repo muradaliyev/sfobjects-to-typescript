@@ -59,14 +59,18 @@ export function generateIndex(describes: Record<string, DescribeSObjectResult>, 
         })
 
     return [
-        'import { getSfObject, getSfObjects, ISfConnection, SfObjActions } from "sfobjects-basic-client";',
+        'import { GetObjectTypes, getSfObject, getSfObjects, ISfConnection, SfObjActions, SfProjection, SfQueryResult, SfRootOrderBy, SfRootSelect, SfRootWhere } from "sfobjects-basic-client";',
         Object.keys(describes).map(t => `import { ${t} } from "./${t}";`).join('\n'),
         `export const SFOBJECTS_INSTANCE = '${instance}';`,
         `export const SFOBJECTS_CONFIG = {\n${constValues.join(',\n')}\n}`,
         `export type SfObjectsIndex = {\n${Object.keys(describes).map((t) => `    ['${t}']: ${t}`).join(',\n')}\n};`,
-        `export type { ${Object.keys(describes).join(', ')} };`,
         'export type SfClientObject<N extends keyof SfObjectsIndex> = SfObjActions<SfObjectsIndex, N>;',
         'export type SfClientObjectsIndex = { [N in keyof SfObjectsIndex]: SfClientObject<N> };',
+        'export type SfClientSelect<N extends keyof SfObjectsIndex> = SfRootSelect<SfObjectsIndex, N>;',
+        'export type SfClientWhere<N extends keyof SfObjectsIndex> = SfRootWhere<SfObjectsIndex, N>;',
+        'export type SfClientOrderBy<N extends keyof SfObjectsIndex> = SfRootOrderBy<SfObjectsIndex, N>;',
+        'export type SfClientSelectProjection<N extends keyof SfObjectsIndex, S extends SfRootSelect<SfObjectsIndex, N>> = SfProjection<GetObjectTypes<SfObjectsIndex>, SfObjectsIndex[N], S>;',
+        'export type SfClientQueryResult<N extends keyof SfObjectsIndex, S extends SfRootSelect<SfObjectsIndex, N>> = SfQueryResult<SfProjection<GetObjectTypes<SfObjectsIndex>, SfObjectsIndex[N], S>>;',
         'export const getSfClientObject = <N extends keyof SfObjectsIndex>(n: N, conn: ISfConnection): SfClientObject<N> => getSfObject<SfObjectsIndex>(SFOBJECTS_CONFIG)(n, conn);',
         'export const getSfClientObjects = (conn: ISfConnection): SfClientObjectsIndex => getSfObjects<SfObjectsIndex>(SFOBJECTS_CONFIG)(conn);'
     ].join('\n\n')

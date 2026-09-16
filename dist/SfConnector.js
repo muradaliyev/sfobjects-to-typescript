@@ -42,66 +42,92 @@ function httpsRequest(options, body) {
         req.end();
     });
 }
+function loginWithClientCredentials(o) {
+    const { client_id, client_secret, domain, sandbox } = o;
+    const postData = querystring_1.default.stringify({
+        grant_type: "client_credentials",
+        client_id,
+        client_secret,
+    });
+    const options = {
+        hostname: `${domain}${sandbox ? '--' + sandbox + '.sandbox' : ''}.my.salesforce.com`,
+        path: "/services/oauth2/token",
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": Buffer.byteLength(postData)
+        }
+    };
+    return httpsRequest(options, postData);
+}
+function loginWithPwdCredentials(o) {
+    const { client_id, client_secret, username, password, login_url, sandbox, token } = o;
+    const postData = querystring_1.default.stringify({
+        grant_type: "password",
+        client_id,
+        client_secret,
+        username,
+        password: `${password}${token || ''}`
+    });
+    const options = {
+        hostname: login_url || (sandbox && SF_SANDBOX_LOGIN_HOST) || SF_LOGIN_HOST,
+        path: "/services/oauth2/token",
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Content-Length": Buffer.byteLength(postData)
+        }
+    };
+    return httpsRequest(options, postData);
+}
 class SfConnector {
-    get url() {
+    constructor(o, env = process.env) {
+        this.o = o;
+        this.env = env;
+    }
+    getParam(n) {
+        return this.env[`${this.o.prefix || 'SF'}_${n}`.toUpperCase()];
+    }
+    get instanceUrl() {
         return new URL(this.auth.instance_url);
     }
-    constructor(_o) {
-        this._o = _o;
+    get domainParam() {
+        return this.o.domain || this.getParam('DOMAIN');
     }
-    loginWithClientCredentials() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const { client_id, client_secret, sandbox, domain } = this._o;
-            const postData = querystring_1.default.stringify({
-                grant_type: "client_credentials",
-                client_id,
-                client_secret,
-            });
-            const options = {
-                hostname: `${domain}${sandbox ? '--' + sandbox + '.sandbox' : ''}.my.salesforce.com`,
-                path: "/services/oauth2/token",
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Content-Length": Buffer.byteLength(postData)
-                }
-            };
-            this._auth = yield httpsRequest(options, postData);
-        });
+    get sandboxParam() {
+        return this.o.sandbox || this.getParam('SANDBOX');
     }
-    loginWithPwdCredentials() {
-        return __awaiter(this, void 0, void 0, function* () {
-            const { client_id, client_secret, username, password, login_url, sandbox, token } = this._o;
-            const postData = querystring_1.default.stringify({
-                grant_type: "password",
-                client_id,
-                client_secret,
-                username,
-                password: `${password}${token || ''}`
-            });
-            const options = {
-                hostname: login_url || (sandbox && SF_SANDBOX_LOGIN_HOST) || SF_LOGIN_HOST,
-                path: "/services/oauth2/token",
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/x-www-form-urlencoded",
-                    "Content-Length": Buffer.byteLength(postData)
-                }
-            };
-            this._auth = yield httpsRequest(options, postData);
-        });
+    get loginUrlParam() {
+        return this.o.login_url || this.getParam('LOGIN_URL') || (this.sandboxParam && SF_SANDBOX_LOGIN_HOST) || SF_LOGIN_HOST;
+    }
+    get clientIdParam() {
+        return this.o.client_id || this.getParam('CLIENT_ID');
+    }
+    get clientSecretParam() {
+        return this.o.client_secret || this.getParam('CLIENT_SECRET');
+    }
+    get usernameParam() {
+        return this.o.username || this.getParam('USERNAME');
+    }
+    get passwordParam() {
+        return this.o.password || this.getParam('PASSWORD');
+    }
+    get tokenParam() {
+        return this.o.token || this.getParam('TOKEN');
     }
     login() {
         return __awaiter(this, void 0, void 0, function* () {
             if (this._auth) {
                 return this._auth;
             }
-            const { client_id, client_secret, username, password, token, domain } = this._o;
-            if (client_id && client_secret && domain) {
-                return this.loginWithClientCredentials();
+            const { clientIdParam: client_id, clientSecretParam: client_secret, usernameParam: username, passwordParam: password, domainParam: domain, loginUrlParam: login_url, sandboxParam: sandbox, tokenParam: token } = this;
+            if (client_id && client_secret && username && password) {
+                console.log('Using Username/Password authentication');
+                return this._auth = yield loginWithPwdCredentials({ client_id, client_secret, username, password, login_url, token, sandbox });
             }
-            else if (client_id && client_secret && username && password) {
-                return this.loginWithPwdCredentials();
+            else if (client_id && client_secret && domain) {
+                console.log('Using Client Credentials authentication');
+                return this._auth = yield loginWithClientCredentials({ client_id, client_secret, domain, sandbox });
             }
             throw `Invalid SF connection parameters`;
         });
@@ -136,7 +162,7 @@ class SfConnector {
     describeGlobal() {
         return __awaiter(this, void 0, void 0, function* () {
             const options = {
-                hostname: this.url.hostname,
+                hostname: this.instanceUrl.hostname,
                 path: `/services/data/${API_VERSION}/sobjects`,
                 method: "GET",
                 headers: this.headers
@@ -147,7 +173,7 @@ class SfConnector {
     describeObject(objectName) {
         return __awaiter(this, void 0, void 0, function* () {
             const options = {
-                hostname: this.url.hostname,
+                hostname: this.instanceUrl.hostname,
                 path: `/services/data/${API_VERSION}/sobjects/${objectName}/describe`,
                 method: "GET",
                 headers: this.headers
@@ -173,7 +199,7 @@ class SfConnector {
         `;
             const encodedQuery = encodeURIComponent(soql);
             const options = {
-                hostname: this.url.hostname,
+                hostname: this.instanceUrl.hostname,
                 path: `/services/data/${API_VERSION}/query?q=${encodedQuery}`,
                 method: "GET",
                 headers: {

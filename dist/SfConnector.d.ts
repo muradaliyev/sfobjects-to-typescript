@@ -13,25 +13,32 @@ export interface RecordTypeAdv {
 }
 export interface SfConnectorOptions {
     login_url?: string;
-    server_url?: string;
     instance_url?: string;
     client_id?: string;
     client_secret?: string;
-    access_token?: string;
     username?: string;
     password?: string;
     token?: string;
     sandbox?: string;
     domain?: string;
+    prefix?: string;
 }
 export declare class SfConnector {
-    private _o;
+    private o;
+    private env;
     private _auth;
-    private get url();
-    constructor(_o: SfConnectorOptions);
-    loginWithClientCredentials(): Promise<void>;
-    loginWithPwdCredentials(): Promise<void>;
-    login(): Promise<void | AuthResponse>;
+    constructor(o: SfConnectorOptions, env?: Record<string, string | undefined>);
+    private getParam;
+    private get instanceUrl();
+    private get domainParam();
+    private get sandboxParam();
+    private get loginUrlParam();
+    private get clientIdParam();
+    private get clientSecretParam();
+    private get usernameParam();
+    private get passwordParam();
+    private get tokenParam();
+    login(): Promise<AuthResponse>;
     get auth(): AuthResponse;
     private get headers();
     getIdentity(): Promise<any>;
