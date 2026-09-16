@@ -1,20 +1,6 @@
-import { Temporal } from "@js-temporal/polyfill";
-
 export type SingleOrArray<T> = (T | T[]);
 
 // Utils
-
-export function isPlainDate(value: unknown): value is Temporal.PlainDate {
-    return toString.call(value) === "[object Temporal.PlainDate]";
-}
-
-export function isZonedDateTime(value: unknown): value is Temporal.ZonedDateTime {
-    return toString.call(value) === "[object Temporal.ZonedDateTime]";
-}
-
-export function isPlainTime(value: unknown): value is Temporal.PlainTime {
-    return toString.call(value) === "[object Temporal.PlainTime]";
-}
 
 export function isPlainObject(value: unknown): value is Record<string, any> {
     if (typeof value !== 'object' || value === null) return false

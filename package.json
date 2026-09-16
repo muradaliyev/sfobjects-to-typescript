@@ -1,6 +1,6 @@
 {
   "name": "sfobjects-to-typescript",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Pulls SF objects description and saves as Typescript interfaces",
   "main": "dist/sfobjects-to-typescript.js",
   "bin": {
@@ -11,7 +11,7 @@
     "url": "https://github.com/muradaliyev/sfobjects-to-typescript"
   },
   "scripts": {
-    "build": "npm run clean && tsc",    
+    "build": "npm run clean && tsc",
     "clean": "rimraf dist"
   },
   "author": "Murad Aliyev",
@@ -23,6 +23,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "yargs": "^18.0.0"
   }
 }

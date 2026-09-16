@@ -1,21 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isPlainDate = isPlainDate;
-exports.isZonedDateTime = isZonedDateTime;
-exports.isPlainTime = isPlainTime;
 exports.isPlainObject = isPlainObject;
 exports.pluralize = pluralize;
 exports.uniq = uniq;
 // Utils
-function isPlainDate(value) {
-    return toString.call(value) === "[object Temporal.PlainDate]";
-}
-function isZonedDateTime(value) {
-    return toString.call(value) === "[object Temporal.ZonedDateTime]";
-}
-function isPlainTime(value) {
-    return toString.call(value) === "[object Temporal.PlainTime]";
-}
 function isPlainObject(value) {
     if (typeof value !== 'object' || value === null)
         return false;
