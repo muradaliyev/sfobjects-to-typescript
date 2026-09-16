@@ -30,7 +30,7 @@ export interface SfConnectorOptions {
     token?: string;
     sandbox?: string;
     domain?: string
-    prefix?: string
+    env_prefix?: string
 }
 
 
@@ -141,7 +141,7 @@ export class SfConnector {
     constructor(private o: SfConnectorOptions, private env: Record<string, string | undefined> = process.env) { }
 
     private getParam(n: string) {
-        return this.env[`${this.o.prefix || 'SF'}_${n}`.toUpperCase()];
+        return this.env[`${this.o.env_prefix || 'SF'}_${n}`.toUpperCase()];
     }
 
     private get instanceUrl() {
