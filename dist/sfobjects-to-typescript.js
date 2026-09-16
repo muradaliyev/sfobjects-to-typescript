@@ -87,7 +87,7 @@ function exctract(o) {
                 yield _store(describe.name, (0, extractTypes_1.extractTypes)({ describe, otherTypeNames: Object.keys(typesIndex), recTypeDevNames: recTypeDevNames[objectName], instance }));
             }
             console.log(`Generating index...`);
-            yield _store('index', o.client ? (0, generateIndex_1.generateIndex)(typesIndex, recTypeDevNames, instance) : (0, generateIndex_1.generateSimpleIndex)(typesIndex, instance));
+            yield _store('index', o.basic_client ? (0, generateIndex_1.generateIndex)(typesIndex, recTypeDevNames, instance) : (0, generateIndex_1.generateSimpleIndex)(typesIndex, instance));
             console.log('Done!');
         }
         catch (err) {

@@ -7,7 +7,7 @@ import { generateIndex, generateSimpleIndex } from './generateIndex';
 export interface ExtractOptions extends SfConnectorOptions {
     objects: string[];
     output?: string;
-    client?: boolean;
+    basic_client?: boolean;
 }
 
 export async function exctract(o: ExtractOptions) {
@@ -74,7 +74,7 @@ export async function exctract(o: ExtractOptions) {
 
         console.log(`Generating index...`);
 
-        await _store('index', o.client ? generateIndex(typesIndex, recTypeDevNames, instance) : generateSimpleIndex(typesIndex, instance));
+        await _store('index', o.basic_client ? generateIndex(typesIndex, recTypeDevNames, instance) : generateSimpleIndex(typesIndex, instance));
 
         console.log('Done!');
     }
