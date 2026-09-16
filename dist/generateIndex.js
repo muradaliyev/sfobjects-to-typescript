@@ -57,6 +57,7 @@ function generateIndex(describes, recTypeDevNames, instance) {
         'export type SfClientSelectProjection<N extends keyof SfObjectsIndex, S extends SfRootSelect<SfObjectsIndex, N>> = SfProjection<GetObjectTypes<SfObjectsIndex>, SfObjectsIndex[N], S>;',
         'export type SfClientQueryResult<N extends keyof SfObjectsIndex, S extends SfRootSelect<SfObjectsIndex, N>> = SfQueryResult<SfProjection<GetObjectTypes<SfObjectsIndex>, SfObjectsIndex[N], S>>;',
         'export const getSfClientObject = <N extends keyof SfObjectsIndex>(n: N, conn: ISfConnection): SfClientObject<N> => getSfObject<SfObjectsIndex>(SFOBJECTS_CONFIG)(n, conn);',
-        'export const getSfClientObjects = (conn: ISfConnection): SfClientObjectsIndex => getSfObjects<SfObjectsIndex>(SFOBJECTS_CONFIG)(conn);'
+        'export const getSfClientObjects = (conn: ISfConnection): SfClientObjectsIndex => getSfObjects<SfObjectsIndex>(SFOBJECTS_CONFIG)(conn);',
+        'export const sfClientObject = <N extends keyof SfObjectsIndex>(n: N) => sfObject<SfObjectsIndex, N>(SFOBJECTS_CONFIG, n);'
     ].join('\n\n');
 }
