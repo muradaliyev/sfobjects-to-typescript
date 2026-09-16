@@ -59,7 +59,7 @@ export function generateIndex(describes: Record<string, DescribeSObjectResult>, 
         })
 
     return [
-        'import { GetObjectTypes, getSfObject, getSfObjects, ISfConnection, SfObjActions, SfProjection, SfQueryResult, SfRootOrderBy, SfRootSelect, SfRootWhere } from "sfobjects-basic-client";',
+        'import { GetObjectTypes, getSfObject, getSfObjects, ISfConnection, SfObjActions, sfObject, SfProjection, SfQueryResult, SfRootOrderBy, SfRootSelect, SfRootWhere } from "sfobjects-basic-client";',
         Object.keys(describes).map(t => `import { ${describes[t].name} } from "./${describes[t].name}";`).join('\n'),
         `export const SFOBJECTS_INSTANCE = '${instance}';`,
         `export const SFOBJECTS_CONFIG = {\n${constValues.join(',\n')}\n}`,
