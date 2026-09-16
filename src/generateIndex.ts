@@ -3,9 +3,9 @@ import { uniq } from "./utils";
 
 export function generateSimpleIndex(describes: Record<string, DescribeSObjectResult>, instance: string) {
     return [
-        Object.keys(describes).map(t => `import { ${t} } from "./${t}";`).join('\n'),
+        Object.keys(describes).map(t => `import { ${describes[t].name} } from "./${describes[t].name}";`).join('\n'),
         `export const SFOBJECTS_INSTANCE = '${instance}';`,
-        `export type { ${Object.keys(describes).join(', ')} };`
+        `export type { ${Object.keys(describes).map(t => describes[t].name).join(', ')} };`
     ].join('\n\n')
 }
 
@@ -55,15 +55,15 @@ export function generateIndex(describes: Record<string, DescribeSObjectResult>, 
                 recordTypes: getRecordTypes()
             }
 
-            return `\n    '${t}': {${Object.keys(_o).map(k => `\n        ${k}: ${_o[k]}`).join(',')}\n    }`;
+            return `\n    '${describes[t].name}': {${Object.keys(_o).map(k => `\n        ${k}: ${_o[k]}`).join(',')}\n    }`;
         })
 
     return [
         'import { GetObjectTypes, getSfObject, getSfObjects, ISfConnection, SfObjActions, SfProjection, SfQueryResult, SfRootOrderBy, SfRootSelect, SfRootWhere } from "sfobjects-basic-client";',
-        Object.keys(describes).map(t => `import { ${t} } from "./${t}";`).join('\n'),
+        Object.keys(describes).map(t => `import { ${describes[t].name} } from "./${describes[t].name}";`).join('\n'),
         `export const SFOBJECTS_INSTANCE = '${instance}';`,
         `export const SFOBJECTS_CONFIG = {\n${constValues.join(',\n')}\n}`,
-        `export type SfObjectsIndex = {\n${Object.keys(describes).map((t) => `    ['${t}']: ${t}`).join(',\n')}\n};`,
+        `export type SfObjectsIndex = {\n${Object.keys(describes).map((t) => `    ['${describes[t].name}']: ${describes[t].name}`).join(',\n')}\n};`,
         'export type SfClientObject<N extends keyof SfObjectsIndex> = SfObjActions<SfObjectsIndex, N>;',
         'export type SfClientObjectsIndex = { [N in keyof SfObjectsIndex]: SfClientObject<N> };',
         'export type SfClientSelect<N extends keyof SfObjectsIndex> = SfRootSelect<SfObjectsIndex, N>;',
