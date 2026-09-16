@@ -21,7 +21,7 @@ export interface SfConnectorOptions {
     token?: string;
     sandbox?: string;
     domain?: string;
-    prefix?: string;
+    env_prefix?: string;
 }
 export declare class SfConnector {
     private o;

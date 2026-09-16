@@ -86,7 +86,7 @@ class SfConnector {
         this.env = env;
     }
     getParam(n) {
-        return this.env[`${this.o.prefix || 'SF'}_${n}`.toUpperCase()];
+        return this.env[`${this.o.env_prefix || 'SF'}_${n}`.toUpperCase()];
     }
     get instanceUrl() {
         return new URL(this.auth.instance_url);
