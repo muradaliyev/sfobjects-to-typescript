@@ -4,7 +4,7 @@ import { uniq } from "./utils";
 export function generateSimpleIndex(describes: Record<string, DescribeSObjectResult>, instance: string) {
     return [
         Object.keys(describes).map(t => `import { ${describes[t].name} } from "./${describes[t].name}";`).join('\n'),
-        `export const SFOBJECTS_INSTANCE = '${instance}';`,
+        `export const SFOBJECTS_INSTANCE = '${instance.toLowerCase().replace('https://', '').replace('http://', '')}';`,
         `export type { ${Object.keys(describes).map(t => describes[t].name).join(', ')} };`
     ].join('\n\n')
 }
@@ -59,13 +59,13 @@ export function generateIndex(describes: Record<string, DescribeSObjectResult>, 
         })
 
     return [
-        'import { GetObjectTypes, getSfObject, getSfObjects, ISfConnection, SfClientOptions, SfObjActions, sfObject, SfProjection, SfQueryResult, SfRootOrderBy, SfRootSelect, SfRootWhere } from "sfobjects-basic-client";',
+        'import { GetObjectTypes, getSfObject, getSfObjects, ISfConnection, SfClientOptions, SfObjActions, sfObject, SfObjectActionsIndex, SfProjection, SfQueryResult, SfRootOrderBy, SfRootSelect, SfRootWhere } from "sfobjects-basic-client";',
         Object.keys(describes).map(t => `import { ${describes[t].name} } from "./${describes[t].name}";`).join('\n'),
         `export const SFOBJECTS_INSTANCE = '${instance}';`,
         `export const SFOBJECTS_CONFIG = {\n${constValues.join(',\n')}\n}`,
         `export type SfObjectsIndex = {\n${Object.keys(describes).map((t) => `    ['${describes[t].name}']: ${describes[t].name}`).join(',\n')}\n};`,
         'export type SfClientObject<N extends keyof SfObjectsIndex> = SfObjActions<SfObjectsIndex, N>;',
-        'export type SfClientObjectsIndex = { [N in keyof SfObjectsIndex]: SfClientObject<N> } & { __getObject: <N extends keyof SfObjectsIndex>(from: N) => SfClientObject<N> };',
+        'export type SfClientObjectsIndex = SfObjectActionsIndex<SfObjectsIndex>;',
         'export type SfClientSelect<N extends keyof SfObjectsIndex> = SfRootSelect<SfObjectsIndex, N>;',
         'export type SfClientWhere<N extends keyof SfObjectsIndex> = SfRootWhere<SfObjectsIndex, N>;',
         'export type SfClientOrderBy<N extends keyof SfObjectsIndex> = SfRootOrderBy<SfObjectsIndex, N>;',
